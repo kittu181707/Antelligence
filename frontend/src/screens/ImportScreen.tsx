@@ -1,7 +1,7 @@
 import { useRef } from 'react';
-import { ArrowLeft, CalendarDays, LocateFixed, Plus, Trash2, Upload } from 'lucide-react';
-import type { AgendaPayload, CalendarEvent, Coordinates } from '../types';
-import { lastForecastDate, localDate, minutesToTime, timeToMinutes, uid } from '../utils';
+import { ArrowLeft, CalendarDays, LocateFixed, Plus, Trash2, Upload, Info, ArrowRight } from 'lucide-react';
+import type { AgendaPayload, CalendarEvent, Coordinates, JourneyInput, TransportMode } from '../types';
+import { lastForecastDate, localDate, minutesToTime, modes, timeToMinutes, uid } from '../utils';
 
 const MAX_STOPS = 12;
 function nextEnd(start: string) {
@@ -24,18 +24,49 @@ export function canReviewAgenda(agenda: AgendaPayload) {
   );
 }
 
-export function ImportScreen({ agenda, setAgenda, mode, onBack, onContinue, onIcs, busy, error, liveLocation }: {
+export function ImportScreen({ agenda, setAgenda, mode, journeys, setJourneys, maxExtra, setMaxExtra, onBack, onAnalyze, onIcs, busy, error, liveLocation }: {
   agenda: AgendaPayload;
   setAgenda: (agenda: AgendaPayload) => void;
   mode: 'import' | 'manual';
+  journeys: JourneyInput[];
+  setJourneys: (journeys: JourneyInput[]) => void;
+  maxExtra: number;
+  setMaxExtra: (minutes: number) => void;
   onBack: () => void;
-  onContinue: () => void;
+  onAnalyze: () => void;
   onIcs?: (file: File) => void;
   busy: boolean;
   error?: string;
   liveLocation?: Coordinates | null;
 }) {
   const uploadRef = useRef<HTMLInputElement>(null);
+  const editJourney = (id: string, patch: Partial<JourneyInput>) =>
+    setJourneys(journeys.map((journey) => journey.tripId === id ? { ...journey, ...patch } : journey));
+  const hasTransit = journeys.some((journey) => journey.mode === 'bus' || journey.mode === 'metro');
+  const transportChoices = (journey: JourneyInput, name: string) => (
+    <div className="planner-travel-settings" role="group" aria-label={`Transport for ${name}`}>
+      <div className="planner-travel-departure">
+        <label>Leave at
+          <input type="time" aria-label={`${name} travel departure`} value={journey.departureTime}
+            onChange={(event) => editJourney(journey.tripId, { departureTime: event.target.value })}/>
+        </label>
+        {journey.arriveBy && <span>Arrive by {journey.arriveBy}</span>}
+      </div>
+      <div className="planner-travel-mode-label">How will you travel?</div>
+      <div className="planner-travel-modes">
+        {modes.map((option) => <button type="button" key={option.value}
+          aria-label={`${name} by ${option.label}`}
+          aria-pressed={journey.mode === option.value}
+          disabled={option.value === 'bike'}
+          title={option.value === 'bike' ? 'Bicycle routing is not available from the live provider' : option.label}
+          className={journey.mode === option.value ? 'selected' : ''}
+          onClick={() => editJourney(journey.tripId, { mode: option.value as TransportMode })}>
+          {option.label}
+        </button>)}
+      </div>
+    </div>
+  );
+
   const ordered = [...agenda.events].sort((a, b) => a.start.localeCompare(b.start));
   const today = localDate();
   const forecastEnd = lastForecastDate();
@@ -66,7 +97,7 @@ export function ImportScreen({ agenda, setAgenda, mode, onBack, onContinue, onIc
     <div className="screen-title">
       <span className="welcome-kicker">PERSONALIZED DAILY ROUTES</span>
       <h1>Plan your day</h1>
-      <p>Add stops in any order. We place each location on the map as you enter it, then calculate actual road routes after analysis.</p>
+      <p>Add stops, choose how you travel, and optimize your whole day in one step. Each location appears on the map as you type.</p>
     </div>
     <div className="itinerary-section">
       <div className="itinerary-topline">
@@ -103,15 +134,33 @@ export function ImportScreen({ agenda, setAgenda, mode, onBack, onContinue, onIc
             <label>Leave <input aria-label={`Stop ${index + 1} departure`} type="time" value={event.end}
               onChange={(e) => update(event.eventId, { end: e.target.value })}/></label>
           </div>
+          {journeys[index] && transportChoices(journeys[index], `Stop ${index + 1}`)}
         </div>
         <button className="icon-button" aria-label={`Remove stop ${index + 1}`} onClick={() => remove(event.eventId)}><Trash2 size={17}/></button>
       </div>)}
     </div>
     <button className="dashed itinerary-add" disabled={agenda.events.length >= MAX_STOPS} onClick={add}><Plus size={17}/> Add another stop</button>
+    {ordered.length > 0 && journeys.length > ordered.length && (
+      <section className="planner-return-trip" aria-label="Return home travel">
+        <div className="planner-return-title"><ArrowRight size={16}/><strong>Return to your starting location</strong></div>
+        {transportChoices(journeys[ordered.length], 'Return home')}
+      </section>
+    )}
+    <section className="planner-travel-budget" aria-label="Optimization preferences">
+      <div><strong>Maximum extra travel</strong><p>Additional minutes allowed across the day for lower modeled exposure.</p></div>
+      <div className="planner-budget-buttons">{[0, 5, 10, 15].map((minutes) =>
+        <button type="button" key={minutes} aria-pressed={maxExtra === minutes}
+          className={maxExtra === minutes ? 'selected' : ''}
+          onClick={() => setMaxExtra(minutes)}>{minutes ? '+' : ''}{minutes} min</button>)}</div>
+    </section>
+    {hasTransit && <div className="route-warning"><Info size={17}/> Live Bus/Metro routes may be unavailable in your city. If analysis cannot find a route, try Car or Walk.
+      <button type="button" className="secondary" onClick={() => setJourneys(journeys.map((journey) =>
+        ({ ...journey, mode: 'car' })))}>Use Car for all journeys</button>
+    </div>}
     {invalid && ordered.length > 0 && <div className="editor-warning">Complete each stop's name and address, and ensure appointment times don't overlap.</div>}
-    {error && <div className="error-banner">{error}</div>}
-    <button className="primary large full itinerary-submit" disabled={busy || !canReviewAgenda(agenda)} onClick={onContinue}>
-      Review journeys
+    {error && <div className="error-banner" role="alert">{error}</div>}
+    <button type="button" className="primary large full itinerary-submit" disabled={busy || !canReviewAgenda(agenda)} onClick={onAnalyze}>
+      {busy ? 'Analyzing your day…' : 'Analyze & optimize my day'}
     </button>
   </div>;
 }

@@ -16,7 +16,7 @@ const nav = read('src/components/BottomNav.tsx');
 const liveSnapshot = read('src/components/LiveEnvironmentSnapshot.tsx');
 const errorBoundary = read('src/components/ErrorBoundary.tsx');
 const entryFile = read('src/main.tsx');
-const travel = read('src/screens/TravelScreen.tsx');
+const travel = read('src/screens/ImportScreen.tsx');
 const accepted = read('src/screens/AcceptedScreen.tsx');
 const india = read('src/screens/IndiaScreen.tsx');
 const settings = read('src/screens/SettingsScreen.tsx');
@@ -83,12 +83,13 @@ assert(liveSnapshot.includes('navigator.geolocation'), 'live snapshot must suppo
 assert(api.includes('/api/runtime-config') && api.includes('/api/environment/current'), 'live frontend APIs missing');
 assert(api.includes('/api/places/resolve') && template.includes('ResolvePlaceFunction'), 'live place geocoding endpoint missing');
 assert(map.includes('raster-route-preview') && app.includes('previewPoints={previewPoints}'), 'map must preview typed stops before analysis');
-assert(travel.includes('Use Car for all journeys') && travel.includes('Live bus and metro availability'), 'unsupported live transit must have an actionable fallback');
+assert(travel.includes('Use Car for all journeys') && travel.includes('Live Bus/Metro routes'), 'unsupported live transit must retain an actionable fallback on the stops page');
 const styles = read('src/styles.css');
-assert(styles.includes('position: static !important') && styles.includes('.review-actions'), 'planner CTA must not float over form or navigation');
+assert(styles.includes('position: static !important') && styles.includes('.planner-travel-modes'), 'direct planner CTA and inline mode selector must fit without overlaying form');
 assert(app.includes('planner-layout') && app.includes('planner-map-review-button') &&
-  app.includes('disabled={busy || !canReviewAgenda(agenda)}'),
-  'planner must move the checked Review action below a map-side card');
+  app.includes('disabled={busy || !canReviewAgenda(agenda)}') &&
+  app.includes('onClick={runAnalysis}'),
+  'map-side action must analyze directly with validated stops, without a separate review page');
 assert(styles.includes('.global-split-layout.planner-layout') &&
   styles.includes('.planner-layout .global-panel-col') &&
   styles.includes('scrollbar-gutter: stable;') &&
@@ -98,9 +99,13 @@ assert(styles.includes('.global-split-layout.planner-layout') &&
   'desktop planner must scroll the full left column while keeping the right map-side Review');
 
 
-assert(app.includes("else if (step === 'travel') content = <TravelScreen"), 'travel confirmation screen must be reachable');
+assert(!app.includes("step === 'travel'") && !app.includes('TravelScreen') &&
+  !app.includes('continueToTravel'), 'intermediate journey-review screen must be removed');
+assert(travel.includes('transportChoices') && travel.includes('planner-travel-budget') &&
+  travel.includes('Return home') && travel.includes('onAnalyze'),
+  'stop page must support mode, departure, return journey, budget and direct Analyze');
 assert(app.includes('isDemo={isDemo}'), 'demo/live provenance must flow into screens and map');
-assert(travel.includes("mode.value === 'bike' && !isDemo"), 'unverified bicycle routing must stay disabled in live mode');
+assert(travel.includes("option.value === 'bike'"), 'unverified bicycle routing must stay disabled in live stop editor');
 assert(!accepted.includes('google.com/maps'), 'accepted plan must not substitute an unanalyzed Google route');
 
 assert(utils.includes("raw === null"), 'missing extra-travel preference must use default');
