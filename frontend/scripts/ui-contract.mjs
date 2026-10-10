@@ -110,10 +110,11 @@ assert(overlay.includes('aria-modal="true"') && overlay.includes('data-analysis-
   overlay.includes('Progress animation is illustrative'),
   'animation must show engaging modal status without inventing server-side completion');
 const routeService = read('../backend/src/services/routes.ts');
-assert(routeService.includes("input.mode === 'walk' || input.mode === 'bike'") &&
+assert(routeService.includes("input.mode === 'walk' ? 'Pedestrian'") &&
   routeService.includes('estimatedBikeMinutes') &&
+  routeService.includes('car-road geometry') &&
   routeService.includes('not bicycle-verified'),
-  'Bike estimates must use honest AWS pedestrian geometry provenance');
+  'Bike estimates must use verified AWS road geometry and explicit not bicycle-verified provenance');
 
 assert(travel.includes('transportChoices') && travel.includes('planner-travel-budget') &&
   travel.includes('Return home') && travel.includes('onAnalyze'),
