@@ -286,8 +286,9 @@ export default function App() {
 
   const onNav = (next: NavTab) => {
     setTab(next);
-    // Returning from a map preview must not discard a partially edited day.
-    if (next === 'today' && tab !== 'map') setStep('landing');
+    // Preserve an unfinished itinerary when visiting either Map or Settings.
+    // Do not send users back to the landing page mid-edit.
+    if (next === 'today' && step !== 'manual' && step !== 'import') setStep('landing');
     if (next === 'optimize') {
       if (analysis) setStep('final');
       else if (agenda.events.length) setStep(agendaMode);
