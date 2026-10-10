@@ -19,7 +19,7 @@ import { Map } from './components/Map';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { LiveEnvironmentSnapshot } from './components/LiveEnvironmentSnapshot';
 import type { AcceptedPlan, AgendaPayload, DayAnalysis, JourneyInput, TripAnalysis, Coordinates } from './types';
-import { deriveJourneys, getUserId, localDate, readStoredNumber, storeNumber } from './utils';
+import { deriveJourneys, getUserId, localDate, lastForecastDate, readStoredNumber, storeNumber } from './utils';
 
 const blankAgenda = (location?: Coordinates | null): AgendaPayload => ({ date: localDate(), homeLocation: location ? `${location.lat.toFixed(6)}, ${location.lon.toFixed(6)}` : 'Home', events: [] });
 type Step = 'landing'|'import'|'manual'|'travel'|'analysis'|'overview'|'changes'|'final'|'accepted';
@@ -49,6 +49,7 @@ export default function App() {
   const [userId, setUserId] = useState('');
   const [previewPoints, setPreviewPoints] = useState<{ id: string; label: string; point: Coordinates }[]>([]);
   const placeCache = useRef(new globalThis.Map<string, Coordinates>());
+  const previousIndiaDay = useRef(localDate());
 
   useEffect(() => {
     let active = true;
@@ -129,6 +130,27 @@ export default function App() {
     return () => { active = false; window.clearTimeout(timer); };
   }, [itineraryPlaceKey, isDemo, analysis, tab, step, liveLocation?.lat, liveLocation?.lon]);
 
+  // Handle a long-running browser tab crossing midnight IST without turning
+  // a previously valid 'today' itinerary into an invalid yesterday forecast.
+  useEffect(() => {
+    const rollover = () => {
+      const next = localDate();
+      const previous = previousIndiaDay.current;
+      if (next === previous) return;
+      previousIndiaDay.current = next;
+      setAgenda((current) => !isDemo && current.date === previous
+        ? { ...current, date: next } : current);
+    };
+    const interval = window.setInterval(rollover, 60_000);
+    window.addEventListener('focus', rollover);
+    document.addEventListener('visibilitychange', rollover);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', rollover);
+      document.removeEventListener('visibilitychange', rollover);
+    };
+  }, [isDemo]);
+
   const setMaxExtra = (value: number) => { setMaxExtraState(value); storeNumber('max_extra_minutes', value); };
 
   const startAgenda = (mode: AgendaMode) => {
@@ -198,6 +220,11 @@ export default function App() {
 
   const runAnalysis = async () => {
     if (busy) return;
+    if (!isDemo && (agenda.date < localDate() || agenda.date > lastForecastDate())) {
+      setStep(agendaMode);
+      setError('Choose a day within the next seven days in India before analyzing your route.');
+      return;
+    }
     if (!agenda.events.length) { setStep('manual'); setError('Add at least one stop before analyzing your day.'); return; }
     const plannedJourneys = journeys.length ? journeys : deriveJourneys(agenda.events, agenda.homeLocation);
     if (!plannedJourneys.length) { setStep('manual'); setError('Add a destination to continue.'); return; }

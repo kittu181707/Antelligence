@@ -1,5 +1,5 @@
 import type { AnalyzeDayRequest, PreparedRequest, TransportMode } from '../types';
-import { isValidDate, isValidTime, timeToMinutes } from '../core/time';
+import { isValidDate, isValidTime, timeToMinutes, checkForecastDate } from '../core/time';
 
 const MODES = new Set<TransportMode>(['car', 'bike', 'bus', 'metro', 'walk']);
 const MAX_EVENTS = 12;
@@ -19,6 +19,10 @@ function samePlace(a: string, b: string) {
 export const handler = async (input: AnalyzeDayRequest): Promise<PreparedRequest> => {
   if (!input || typeof input !== 'object') throw new Error('Invalid analysis request');
   if (!isValidDate(input.date)) throw new Error('Invalid day date');
+  if (!input.demoMode) {
+    const warning = checkForecastDate(input.date);
+    if (warning) throw new Error(warning);
+  }
   const userId = clean(input.userId, 'User ID', 128);
   const homeLocation = clean(input.homeLocation, 'Home location');
 

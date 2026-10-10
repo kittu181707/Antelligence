@@ -83,7 +83,7 @@ async function main() {
   await assert.rejects(
     () => prepare({
       userId: 'u1',
-      date: '2026-10-06',
+      date: '2026-10-06', demoMode: true,
       homeLocation: 'Home',
       maxExtraMinutes: 10,
       events: [
@@ -98,7 +98,7 @@ async function main() {
   await assert.rejects(
     () => prepare({
       userId: 'u1',
-      date: '2026-10-06',
+      date: '2026-10-06', demoMode: true,
       homeLocation: 'Home',
       maxExtraMinutes: 10,
       events: [{ eventId: '1', title: 'A', location: 'X', start: '09:00', end: '10:00', fixed: true }],
@@ -142,7 +142,7 @@ async function main() {
     mode: 'car' as const,
   }));
   const validDay = {
-    userId: 'u1', date: '2026-10-06', homeLocation: '28.613900, 77.209000',
+    userId: 'u1', date: '2026-10-06', demoMode: true, homeLocation: '28.613900, 77.209000',
     maxExtraMinutes: 10, events: twelveEvents, journeys: twelveJourneys,
   };
   const prepared = await prepare(validDay);
