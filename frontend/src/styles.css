@@ -1429,3 +1429,189 @@ body { overflow-x: hidden; }
   .planner-budget-buttons { width: 100%; }
   .planner-budget-buttons button { flex: 1 1 auto; }
 }
+
+
+/* Optional cycle estimate; AWS has no true bicycle graph. */
+.planner-bike-note {
+  margin: 0;
+  padding: 9px 11px;
+  border: 1px solid #bce7d2;
+  border-radius: 9px;
+  background: #f0fcf6;
+  color: #416354;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* Analyze in place: planner and the real map remain mounted, but protected
+   from interaction until the AWS response arrives. No separate loading page. */
+.analysis-overlay {
+  position: fixed;
+  z-index: 120;
+  inset: 0;
+  padding: max(20px, env(safe-area-inset-top)) 16px max(20px, env(safe-area-inset-bottom));
+  display: grid;
+  place-items: center;
+  background: rgba(8, 28, 25, .53);
+  backdrop-filter: blur(10px) saturate(.85);
+  -webkit-backdrop-filter: blur(10px) saturate(.85);
+  overflow-y: auto;
+}
+.analysis-overlay-card {
+  position: relative;
+  isolation: isolate;
+  width: min(100%, 495px);
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  border: 1px solid rgba(255,255,255,.7);
+  border-radius: 25px;
+  padding: 23px 28px 22px;
+  background: linear-gradient(153deg, #ffffff 2%, #f1fcf5 56%, #edf5f4 100%);
+  color: #0e2a21;
+  text-align: center;
+  box-shadow: 0 27px 90px rgba(2, 25, 20, .26), 0 0 0 5px rgba(255,255,255,.10);
+}
+.analysis-overlay-card::before {
+  position: absolute; content: "";
+  width: 230px; height: 230px; right: -90px; top: -110px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(16,185,129,.17),transparent 75%);
+  pointer-events: none;
+  z-index: -1;
+}
+.analysis-overlay-eyebrow {
+  display: flex; gap: 9px; align-items: center; justify-content: center;
+  color: #047857;
+  font-weight: 800; letter-spacing: .13em; font-size: 10px;
+}
+.analysis-overlay-live-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: #10b981;
+  box-shadow: 0 0 0 4px #d1fae5;
+  animation: analysis-pulse 1.6s ease-in-out infinite;
+}
+.analysis-orbit {
+  position: relative;
+  width: 174px;
+  height: 174px;
+  margin: 14px auto 15px;
+  display: grid; place-items: center;
+}
+.analysis-orbit-circle {
+  position: absolute;
+  inset: 10px;
+  border-radius: 50%;
+  border: 1px dashed rgba(5,150,105,.37);
+  animation: analysis-spin 18s linear infinite;
+}
+.analysis-orbit-circle.orbit-two {
+  inset: 30px;
+  border: 1px solid rgba(4,120,87,.22);
+  animation-direction: reverse;
+}
+.analysis-orbit-center {
+  display: grid; place-items: center;
+  width: 91px; height: 91px;
+  border-radius: 27px;
+  color: #065f46;
+  background: linear-gradient(145deg,#d1fae5,#eefdf2);
+  border: 1px solid #a7e6c1;
+  box-shadow: 0 8px 32px rgba(6,95,70,.11), 0 0 0 10px rgba(209,250,229,.42);
+  animation: analysis-breathe 2s ease-in-out infinite;
+}
+.analysis-orbit-satellite {
+  position: absolute;
+  display: grid; place-items: center;
+  width: 35px; height: 35px;
+  border: 1px solid #c6eada;
+  background: white; color: #059669;
+  box-shadow: 0 4px 13px rgba(2,70,48,.10);
+  border-radius: 50%;
+}
+.analysis-orbit-satellite.satellite-one { top: 1px; left: 25px; animation: analysis-float 2s ease-in-out infinite; }
+.analysis-orbit-satellite.satellite-two { right: 0; top: 66px; animation: analysis-float 2.4s ease-in-out -1s infinite; }
+.analysis-orbit-satellite.satellite-three { bottom: 7px; left: 23px; animation: analysis-float 2.2s ease-in-out -.4s infinite; }
+.analysis-overlay-card h2 {
+  margin: 0 auto 8px;
+  font-size: clamp(22px,3.4vw,27px);
+  font-weight: 800;
+  letter-spacing: -.042em;
+  line-height: 1.15;
+  max-width: 380px;
+}
+.analysis-overlay-card > p#analysis-overlay-desc {
+  max-width: 365px;
+  margin: 0 auto 16px;
+  color: #5a736b; font-size: 12px; line-height: 1.55;
+}
+.analysis-active-step {
+  display: flex; align-items: center;
+  gap: 12px;
+  min-height: 69px;
+  border: 1px solid #bce9d3;
+  border-radius: 14px;
+  padding: 11px 13px;
+  background: #e8fbef;
+  color: #047857;
+  text-align: left;
+}
+.analysis-active-step > svg { flex: 0 0 auto; animation: analysis-pulse 1.7s ease-in-out infinite; }
+.analysis-active-step > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.analysis-active-step strong { font-size: 12px; color: #064e3b; }
+.analysis-active-step span { font-size: 10px; color: #507666; line-height: 1.4; }
+.analysis-ellipsis { display: flex; gap: 3px; align-self: flex-end; margin-bottom: 4px; }
+.analysis-ellipsis i {
+  width: 4px; height: 4px; border-radius: 50%; background: #059669;
+  animation: analysis-pulse 1s ease-in-out infinite;
+}
+.analysis-ellipsis i:nth-child(2) { animation-delay: .15s; }
+.analysis-ellipsis i:nth-child(3) { animation-delay: .3s; }
+.analysis-stage-list { margin-top: 14px; display: grid; gap: 6px; }
+.analysis-stage {
+  display: flex; gap: 10px; align-items: center;
+  min-height: 32px;
+  text-align: left;
+  border-radius: 10px;
+  padding: 5px 9px;
+  color: #8b9f96; font-size: 11px;
+}
+.analysis-stage-icon { display: grid; place-items: center; color: #91a79d; }
+.analysis-stage.active { background: rgba(209,250,229,.6); color: #065f46; font-weight: 700; }
+.analysis-stage.active .analysis-stage-icon,
+.analysis-stage.visited .analysis-stage-icon { color: #059669; }
+.analysis-stage.visited { color: #5c8070; }
+.analysis-stage-working, .analysis-stage-check {
+  margin-left: auto; flex: 0 0 auto;
+  font-size: 10px; color: #059669; font-weight: 650;
+}
+.analysis-overlay-footer {
+  margin: 15px auto 0;
+  max-width: 390px;
+  font-size: 10px; color: #799086; line-height: 1.5;
+}
+@keyframes analysis-spin { to { transform: rotate(360deg); } }
+@keyframes analysis-breathe { 50% { transform: scale(1.075); } }
+@keyframes analysis-float { 50% { transform: translateY(-7px); } }
+@keyframes analysis-pulse { 50% { opacity: .48; } }
+@media (max-width: 520px) {
+  .analysis-overlay-card { padding: 19px 17px 18px; border-radius: 20px; }
+  .analysis-orbit { margin-top: 7px; margin-bottom: 9px; height: 149px; width: 149px; }
+  .analysis-orbit-center { width: 80px; height: 80px; }
+  .analysis-orbit-satellite.satellite-three { bottom: 0; }
+}
+@media (max-height: 640px) {
+  .analysis-overlay-card { padding-top: 13px; padding-bottom: 12px; }
+  .analysis-orbit { width: 125px; height: 125px; margin: 3px auto 8px; }
+  .analysis-orbit-center { width: 68px; height: 68px; border-radius: 20px; }
+  .analysis-orbit-center svg { width: 31px; height: 31px; }
+  .analysis-orbit-satellite { width: 29px; height: 29px; }
+  .analysis-orbit-satellite.satellite-three { bottom: 0; }
+  .analysis-overlay-card h2 { font-size: 21px; }
+  .analysis-stage-list { gap: 2px; margin-top: 8px; }
+  .analysis-stage { min-height: 27px; padding: 3px 9px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .analysis-overlay *, .analysis-overlay *::before, .analysis-overlay *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
