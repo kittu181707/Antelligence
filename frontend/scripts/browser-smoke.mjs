@@ -71,6 +71,10 @@ try {
       // Simulate the delayed data response that has triggered the reported white page.
       await new Promise((resolve) => setTimeout(resolve, 1200));
       payload = envCalls % 3 === 0 ? { temperature: 'invalid' } : env;
+    } else if (path.endsWith('/api/places/resolve')) {
+      const name = JSON.parse(route.request().postData() || '{}').location || '';
+      const coords = name.match(/^(-?\\d+\\.\\d+),\\s*(-?\\d+\\.\\d+)$/);
+      payload = { location: name, position: coords ? { lat: Number(coords[1]), lon: Number(coords[2]) } : gym, source: 'Amazon Location Places V2' };
     } else if (path.endsWith('/api/demo/day')) payload = demoDay;
     else if (path.endsWith('/api/day/analyze')) payload = analysis;
     else if (path.endsWith('/api/runtime-config')) payload = { mapApiKey: null, region: 'us-east-1', mapStyle: 'Standard', source: 'fixture' };
@@ -133,6 +137,18 @@ try {
     await page.getByLabel('Stop ' + i + ' name').fill('Stop ' + i);
     await page.getByLabel('Stop ' + i + ' destination').fill('16.' + (306700 + i * 100) + ',80.4' + (36500 + i * 120));
   }
+  // Mark typed stops on the live map without running a demo/analysis.
+  await page.waitForTimeout(1900);
+  assert(await page.locator('.raster-stop-marker.preview').count() >= 3,
+    'typing places must create map preview markers before analysis');
+  assert((await page.locator('.raster-route-preview').getAttribute('d') || '').length > 12,
+    'ordered stop locations must produce a labeled preliminary route');
+  assert(!await page.locator('.itinerary-submit').evaluate((element) => {
+    const style = window.getComputedStyle(element);
+    return style.position === 'sticky' || style.position === 'fixed';
+  }), 'Review journeys must stay in form flow, never float over stops');
+  assert(await page.locator('.top-environment .env-chip').count() >= 3,
+    'editing origin must not reset environmental chips to CONNECTING');
   assert(await page.getByRole('button', { name: 'Review journeys' }).isEnabled(),
     'valid timed three-stop schedule must enable Review journeys');
   await page.getByRole('button', { name: 'Review journeys' }).click();
