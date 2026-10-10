@@ -5,6 +5,7 @@ import { matchesSession, sessionUserId } from '../auth';
 import { optimizeCandidateSets } from '../core/optimizer';
 import { snapshotFromTomorrowValues } from '../services/environment';
 import { scoreRoute } from '../core/exposure';
+import { futureDeparture, userFacingRoutingError } from '../services/routes';
 import type { RouteCandidate, TripCandidateSet } from '../types';
 
 const env = { pm25: 100, pm10: 150, aqi: 160, temperature: 30, humidity: 50, windSpeed: 8, uvIndex: 3, rainProbability: 0, source: 'test' };
@@ -136,6 +137,14 @@ const noBenefit = optimizeCandidateSets({
 });
 assert.equal(noBenefit.changes.length, 0, 'a faster but more polluted route must not be mislabeled cleaner');
 assert.equal(noBenefit.metrics.estimatedCo2eChangeKg, 0);
+
+// AWS must not receive a historical departure timestamp.
+assert.equal(futureDeparture('2026-10-10','08:00', Date.parse('2026-10-10T11:00:00+05:30')), false);
+assert.equal(futureDeparture('2026-10-11','08:00', Date.parse('2026-10-10T11:00:00+05:30')), true);
+const transitFailure = new Error('ValidationException');
+transitFailure.name = 'ValidationException';
+assert.match(userFacingRoutingError(transitFailure, 'bus').message, /Choose Car or Walk/);
+assert.match(userFacingRoutingError(transitFailure, 'car').message, /Check both locations/);
 
 const token = 'ab'.repeat(32);
 const userId = 'user-' + createHash('sha256').update(token).digest('hex').slice(0, 32);
