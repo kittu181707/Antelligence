@@ -151,8 +151,9 @@ function TileImage({ tile, onLoaded }: { tile: RasterTile; onLoaded: () => void 
     onError={() => { if (provider === 0) { setProvider(1); setLoaded(false); } else setFailed(true); }}/>;
 }
 
-export function Map({ trips, liveLocation, isDemo = false }: {
+export function Map({ trips, liveLocation, isDemo = false, previewPoints = [] }: {
   trips: TripAnalysis[]; liveLocation?: Coordinates | null; isDemo?: boolean;
+  previewPoints?: { id: string; label: string; point: Coordinates }[];
 }) {
   const container = useRef<HTMLDivElement>(null);
   const pointer = useRef<{ x: number; y: number; original: View } | null>(null);
@@ -163,7 +164,9 @@ export function Map({ trips, liveLocation, isDemo = false }: {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hasTile, setHasTile] = useState(false);
   const [mapNote, setMapNote] = useState('');
-  const points = useMemo(() => allPoints(trips), [trips]);
+  const analyzedPoints = useMemo(() => allPoints(trips), [trips]);
+  const previewCoords = useMemo(() => previewPoints.map((stop) => stop.point).filter(valid), [previewPoints]);
+  const points = analyzedPoints.length ? analyzedPoints : previewCoords;
   const stops = useMemo(() => routeStops(trips), [trips]);
   const mapTiles = useMemo(() => tilesInView(view, extent), [view, extent]);
 
@@ -245,6 +248,7 @@ export function Map({ trips, liveLocation, isDemo = false }: {
     zoomTo(view.zoom + (event.deltaY < 0 ? 1 : -1));
   };
   const selected = stops.find((stop) => stop.id === selectedId);
+  const previewSelected = !trips.length ? previewPoints.find((stop) => stop.id === selectedId) : undefined;
   return <div className="raster-map" ref={container} aria-label="Interactive route map" data-map-engine="dom-raster" data-map-ready={hasTile ? 'true' : 'fallback'}>
     <div className="raster-map-viewport" onPointerDown={onPointerDown} onPointerMove={onPointerMove}
       onPointerUp={onPointerUp} onPointerCancel={onPointerUp} onWheel={onWheel}>
@@ -252,6 +256,7 @@ export function Map({ trips, liveLocation, isDemo = false }: {
         loading="eager" referrerPolicy="strict-origin-when-cross-origin" tabIndex={-1} aria-hidden="true"/>
       {mapTiles.map((tile) => <TileImage key={tile.id} tile={tile} onLoaded={tileLoaded}/>)}
       <svg className="raster-route-overlay" width={extent.width} height={extent.height} viewBox={'0 0 ' + extent.width + ' ' + extent.height} aria-hidden="true">
+        {trips.length === 0 && previewCoords.length > 1 && <path d={routePath(previewCoords, view, extent)} className="raster-route-preview"/>}
         {trips.map((trip) => <g key={trip.tripId}>
           <path d={routePath(trip.original?.geometry, view, extent)} className="raster-route-original"/>
           <path d={routePath(trip.recommended?.geometry, view, extent)} className="raster-route-optimized"/>
@@ -261,6 +266,12 @@ export function Map({ trips, liveLocation, isDemo = false }: {
         const pos = project(liveLocation, view, extent);
         return <span className="raster-you" style={{ left: pos.x, top: pos.y }} title="Your live location" aria-label="Your live location"/>;
       })()}
+      {trips.length === 0 && previewPoints.map((stop, index) => {
+        const pos = project(stop.point, view, extent);
+        if (pos.x < -20 || pos.x > extent.width + 20 || pos.y < -20 || pos.y > extent.height + 20) return null;
+        return <button type="button" key={stop.id} className="raster-stop-marker preview" style={{ left: pos.x, top: pos.y }}
+          title={stop.label} aria-label={`Preview stop ${index}: ${stop.label}`} onClick={() => setSelectedId(stop.id)}>{index || 'S'}</button>;
+      })}
       {stops.map((stop) => {
         const pos = project(stop.point, view, extent);
         if (pos.x < -20 || pos.x > extent.width + 20 || pos.y < -20 || pos.y > extent.height + 20) return null;
@@ -275,12 +286,14 @@ export function Map({ trips, liveLocation, isDemo = false }: {
       <button type="button" aria-label="Find my location" onClick={locate}><LocateFixed size={16}/></button>
     </div>
     <div className="raster-map-badge">{isDemo ? 'Demo route · ' : ''}Live map</div>
+    {previewSelected && <div className="raster-stop-detail" role="status"><button type="button" aria-label="Close stop details" onClick={() => setSelectedId(null)}>×</button><strong>{previewSelected.label}</strong><span>Place located using Amazon Location. Dashed segment is a straight-line preview; road routing appears after Analyze.</span></div>}
     {selected && <div className="raster-stop-detail" role="status">
       <button type="button" aria-label="Close stop details" onClick={() => setSelectedId(null)}>×</button>
       <strong>{selected.index === 0 ? 'Start' : 'Stop ' + selected.index} · {selected.label}</strong>
       <span>{selected.details}</span>
     </div>}
     {mapNote && <p className="raster-map-note" role="status">{mapNote}</p>}
+    {!trips.length && previewCoords.length > 1 && <div className="raster-preview-label">Stop preview · Road route after Analyze</div>}
     {trips.length > 0 && <div className="map-route-legend">
       <span><i className="map-line current"/>Original</span>
       <span><i className="map-line recommended"/>Optimized</span>
