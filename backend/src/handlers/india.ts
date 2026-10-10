@@ -2,7 +2,8 @@ import type { APIGatewayProxyResult } from 'aws-lambda';
 import { json } from '../http';
 import { currentEnvironmentAt, environmentAt } from '../services/environment';
 
-const STATIONS = [
+// Representative city-centre model sample points, NOT CPCB monitoring stations.
+const CITY_SAMPLES = [
   { name: 'Delhi', lat: 28.6139, lon: 77.2090 },
   { name: 'Mumbai', lat: 19.0760, lon: 72.8777 },
   { name: 'Bengaluru', lat: 12.9716, lon: 77.5946 },
@@ -18,7 +19,7 @@ export const handler = async (): Promise<APIGatewayProxyResult> => {
     const date = now.toISOString().slice(0, 10);
     const hour = now.toISOString().slice(11, 13) + ':00';
 
-    const stations = await Promise.all(STATIONS.map(async (station) => {
+    const stations = await Promise.all(CITY_SAMPLES.map(async (station) => {
       try {
         const environment = demoMode
           ? await environmentAt(station, date, hour, true)
@@ -30,21 +31,25 @@ export const handler = async (): Promise<APIGatewayProxyResult> => {
           pm25: environment.pm25,
           pm10: environment.pm10,
           source: environment.source,
-          updated: environment.updatedAt || (demoMode ? 'Demo' : 'Live'),
+          updated: environment.updatedAt || (demoMode ? 'Demo' : 'Unknown'),
+          validAt: environment.validAt || null,
+          dataType: demoMode ? 'demo' : 'model',
         };
       } catch {
         return {
           ...station,
-          aqi: 0,
-          pm25: 0,
-          pm10: 0,
+          aqi: null,
+          pm25: null,
+          pm10: null,
           source: 'Unavailable',
           updated: 'Unknown',
+          validAt: null,
+          dataType: 'unavailable',
         };
       }
     }));
 
-    return json(200, { stations });
+    return json(200, { stations, coverage: 'Six city-centre model samples; these coordinates are not CPCB sensor stations.', aqiStandard: 'US EPA' });
   } catch (error) {
     console.error('India live data error:', error);
     return json(500, { message: 'Failed to fetch India data' });
