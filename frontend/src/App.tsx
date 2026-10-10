@@ -8,7 +8,7 @@ import { AnalysisScreen } from './screens/AnalysisScreen';
 import { ChangesScreen } from './screens/ChangesScreen';
 import { FinalPlanScreen } from './screens/FinalPlanScreen';
 import { HistoryScreen } from './screens/HistoryScreen';
-import { ImportScreen } from './screens/ImportScreen';
+import { ImportScreen, canReviewAgenda } from './screens/ImportScreen';
 import { LandingScreen } from './screens/LandingScreen';
 import { OverviewScreen } from './screens/OverviewScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
@@ -345,7 +345,7 @@ export default function App() {
           </div>
         </main>
       ) : (
-      <main className={`main-content global-split-layout ${tab === 'today' && step === 'landing' && !agenda.events.length ? 'landing-layout' : ''}`}>
+      <main className={`main-content global-split-layout ${tab === 'today' && (step === 'manual' || step === 'import') ? 'planner-layout' : tab === 'today' && step === 'landing' && !agenda.events.length ? 'landing-layout' : ''}`}>
         <section className="global-panel-col">
           {isDemo && <div className="demo-banner">DEMO MODE · Sample routes and conditions</div>}
           {content}
@@ -368,6 +368,19 @@ export default function App() {
             }}><ErrorBoundary label="Live map" compact><Map trips={analysis?.trips ?? EMPTY_TRIPS} liveLocation={liveLocation} isDemo={isDemo} previewPoints={previewPoints} /></ErrorBoundary></div>
             <p className="compact-map-note">{analysis?.trips.length ? `${analysis.trips.length} journey${analysis.trips.length === 1 ? '' : 's'} mapped · Click stops for details` : previewPoints.length > 1 ? `${previewPoints.length - 1} stop(s) placed · Dashed straight-line preview; Analyze for actual roads.` : 'Your live position appears here. Add stops and analyze to plot your day.'}</p>
           </div>
+          {tab === 'today' && (step === 'manual' || step === 'import') && (
+            <div className="planner-map-review">
+              <button type="button" className="primary planner-map-review-button"
+                onClick={continueToTravel} disabled={busy || !canReviewAgenda(agenda)}>
+                Review journeys <span aria-hidden="true">→</span>
+              </button>
+              <p>{agenda.events.length === 0
+                ? 'Add your first stop on the left to continue.'
+                : canReviewAgenda(agenda)
+                  ? `${agenda.events.length} scheduled stop${agenda.events.length === 1 ? '' : 's'} ready to review.`
+                  : 'Complete stop names, destinations and appointment times to continue.'}</p>
+            </div>
+          )}
         </aside>
       </main>
       )}
