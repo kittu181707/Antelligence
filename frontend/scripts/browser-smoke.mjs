@@ -116,6 +116,22 @@ try {
   }
   const input = page.getByRole('button', { name: 'Enter Origin & Destination' });
   await input.click();
+  const indianDate = (now = new Date()) => {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).formatToParts(now);
+    const value = (kind) => parts.find((part) => part.type === kind)?.value;
+    return value('year') + '-' + value('month') + '-' + value('day');
+  };
+  assert.equal(await page.locator('#day-date').inputValue(), indianDate(),
+    'planner day must match India timezone even when Chromium runs on UTC');
+  await page.locator('#day-date').fill(indianDate(new Date(Date.now() - 86_400_000)));
+  assert(await page.getByText('selected day has passed in India').isVisible(),
+    'past-day forecast must show an actionable date warning');
+  await page.getByRole('button', { name: 'Use today' }).click();
+  assert.equal(await page.locator('#day-date').inputValue(), indianDate(),
+    'Use today must recover the date without clearing stops');
+
   for (let i = 0; i < 3; i += 1) {
     await page.getByRole('button', { name: 'Add another stop' }).click();
   }
