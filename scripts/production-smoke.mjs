@@ -186,3 +186,54 @@ console.log('LIVE GUNTUR CAR PASS: ' + JSON.stringify({
   choices: realJourney.candidatesEvaluated,
   accepted: false,
 }));
+
+
+/**
+ * The production planner's actual 2-stop journey: Home → Gym → Office → Home.
+ * Checks real Amazon Location road geometries and Open-Meteo modeled exposure
+ * for each leg, with a valid India-local forecast day.
+ * Keep as unaccepted ephemeral test draft; no impact contribution.
+ */
+const gunturOffice = '16.330000,80.460000';
+const multi = await request('/api/day/analyze', {
+  method: 'POST', authenticated: true, timeout: 29_000,
+  body: {
+    userId,
+    date: testDate, homeLocation: gunturOrigin, maxExtraMinutes: 10, demoMode: false,
+    events: [
+      { eventId: 'three-leg-gym', title: 'Gym', location: gunturDestination,
+        start: '09:00', end: '09:45', fixed: true },
+      { eventId: 'three-leg-office', title: 'Office', location: gunturOffice,
+        start: '10:15', end: '11:00', fixed: true },
+    ],
+    journeys: [
+      { tripId: 'three-leg-1', origin: gunturOrigin, destination: gunturDestination,
+        departureTime: '08:15', arriveBy: '09:00', mode: 'car' },
+      { tripId: 'three-leg-2', origin: gunturDestination, destination: gunturOffice,
+        departureTime: '09:45', arriveBy: '10:15', mode: 'car' },
+      { tripId: 'three-leg-3', origin: gunturOffice, destination: gunturOrigin,
+        departureTime: '11:00', mode: 'car' },
+    ],
+  },
+});
+check(multi, 'Real two-stop/three-leg Guntur Car environmental day analysis');
+if (multi.data.workflow?.dataMode !== 'live' || multi.data.trips?.length !== 3 ||
+    !String(multi.data.workflow.routeSource || '').includes('Amazon Location') ||
+    !Number.isFinite(multi.data.metrics?.optimizedExposureIndex) ||
+    multi.data.metrics.appointmentsChanged !== 0 ||
+    multi.data.trips.some((trip) => trip.original.mode !== 'car' ||
+      !Array.isArray(trip.original.geometry) || trip.original.geometry.length < 2 ||
+      !Array.isArray(trip.recommended.geometry) || trip.recommended.geometry.length < 2 ||
+      !Number.isFinite(trip.original.modeledExposure))) {
+  throw new Error('Three-leg live itinerary did not return valid routed geometry, feasible appointments and environmental scoring');
+}
+console.log('LIVE GUNTUR THREE CAR LEGS PASS: ' + JSON.stringify({
+  date: testDate, durationMs: multi.durationMs,
+  trips: multi.data.trips.length,
+  routePoints: multi.data.trips.map((trip) => trip.recommended.geometry.length),
+  modes: multi.data.trips.map((trip) => trip.recommended.mode),
+  provider: multi.data.workflow.routeSource,
+  forecast: multi.data.workflow.environmentSource,
+  exposureReductionPct: multi.data.metrics.exposureReductionPct,
+  accepted: false,
+}));
