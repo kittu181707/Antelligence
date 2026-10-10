@@ -36,8 +36,8 @@ export function ImpactScreen() {
   const realPlans = personalPlans.filter((plan) => plan.workflow?.dataMode === 'live');
   const demonstrationPlans = personalPlans.filter((plan) => plan.workflow?.dataMode === 'demo');
   const co2e = realPlans.reduce((sum, plan) => sum + Math.max(0, -(plan.metrics?.estimatedCo2eChangeKg || 0)), 0);
-  const exposure = realPlans.reduce((sum, plan) =>
-    sum + Math.max(0, (plan.metrics?.originalExposureIndex || 0) - (plan.metrics?.optimizedExposureIndex || 0)), 0);
+  const averageImprovement = realPlans.length ? realPlans.reduce((sum, plan) =>
+    sum + Math.max(0, plan.metrics?.exposureReductionPct || 0), 0) / realPlans.length : 0;
 
   return <div className="screen narrow with-nav">
     <div className="screen-title">
@@ -50,9 +50,9 @@ export function ImpactScreen() {
       <section className="impact-section">
         <h2><Leaf size={20} color="var(--green)"/> Personal plans</h2>
         <div className="metric-grid">
-          <div><span>Real plans accepted</span><strong>{realPlans.length}</strong></div>
-          <div><span>Estimated CO₂e avoided</span><strong>{co2e.toFixed(1)} kg</strong></div>
-          <div><span>Modeled exposure index improvement (sum)</span><strong>{exposure.toFixed(0)}</strong></div>
+          <div><span>Recent real plans accepted (up to 20)</span><strong>{realPlans.length}</strong></div>
+          <div><span>Recent plans' estimated CO₂e avoided</span><strong>{co2e.toFixed(1)} kg</strong></div>
+          <div><span>Average modeled exposure improvement</span><strong>{averageImprovement.toFixed(1)}%</strong></div>
         </div>
         {demonstrationPlans.length > 0 && <p className="fine-print">{demonstrationPlans.length} saved demo plan(s) omitted from impact.</p>}
         <p className="fine-print">An accepted recommendation is not proof the journey was completed. The exposure index is relative for each day and is not a measured cumulative pollutant dose.</p>
