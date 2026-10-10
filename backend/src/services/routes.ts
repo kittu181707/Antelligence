@@ -22,7 +22,9 @@ export async function routesForTrip(input: {
   if (input.demoMode) return demoRoutes(input);
 
   const { CalculateRoutesCommand } = await import('@aws-sdk/client-geo-routes');
-  const travelMode = input.mode === 'walk' || input.mode === 'bike' ? 'Pedestrian' : (input.mode === 'bus' || input.mode === 'metro') ? 'Transit' : 'Car';
+  // AWS has no bicycle mode. Use its verified road geometry as an
+  // approximate cycling-exposure path, NEVER as safe bicycle navigation.
+  const travelMode = input.mode === 'walk' ? 'Pedestrian' : (input.mode === 'bus' || input.mode === 'metro') ? 'Transit' : 'Car';
 
   const command: any = {
     Origin: [input.origin.lon, input.origin.lat],
@@ -46,26 +48,11 @@ export async function routesForTrip(input: {
     };
   }
 
-  // Pedestrian routing can be absent in some Indian cities even where Car
-  // works. Bike estimates prefer pedestrian geometry but may use the real
-  // motor-road network only as a clearly disclosed fallback.
-  let bikeUsesCarGeometry = false;
-  if (input.mode === 'bike') delete command.DepartureTime;
   let response: any;
   try {
     response = await (await client()).send(new CalculateRoutesCommand(command));
   } catch (error: any) {
-    if (input.mode === 'bike') {
-      command.TravelMode = 'Car';
-      bikeUsesCarGeometry = true;
-      try {
-        response = await (await client()).send(new CalculateRoutesCommand(command));
-      } catch (fallbackError) {
-        throw userFacingRoutingError(fallbackError, 'bike');
-      }
-    } else {
-    // Some providers report departure-time validation in a terse 'Reason'
-    // field instead of message. Retry without historical traffic prediction.
+    // Preserve historic departure retry used by all live road modes.
     const diagnostic = [error?.message, error?.Reason, error?.reason].filter(Boolean).join(' ');
     if (error?.name === 'ValidationException' && /departure|time/i.test(diagnostic) && command.DepartureTime) {
       delete command.DepartureTime;
@@ -76,16 +63,6 @@ export async function routesForTrip(input: {
       }
     } else {
       throw userFacingRoutingError(error, input.mode);
-    }
-    }
-  }
-  if (input.mode === 'bike' && !response.Routes?.length && !bikeUsesCarGeometry) {
-    command.TravelMode = 'Car';
-    bikeUsesCarGeometry = true;
-    try {
-      response = await (await client()).send(new CalculateRoutesCommand(command));
-    } catch (fallbackError) {
-      throw userFacingRoutingError(fallbackError, 'bike');
     }
   }
   const routes: any[] = response.Routes || [];
@@ -110,10 +87,10 @@ export async function routesForTrip(input: {
       travelMinutes: bikeEstimate ? estimatedBikeMinutes(distanceMeters) : Math.max(1, Math.round(durationSeconds / 60)),
       distanceKm: Math.max(0.1, distanceMeters / 1000),
       geometry: geometry.length ? geometry : [input.origin, input.destination],
-      // AWS Routes V2 has no Bicycle mode. These coordinates are pedestrian
-      // routing geometry, not evidence that each segment is cycling-legal.
+      // AWS Routes V2 has no Bicycle mode. These car-network coordinates
+      // are NOT evidence that segments are cycling-legal or cycling-safe.
       source: bikeEstimate
-        ? `Amazon Location Routes V2 ${bikeUsesCarGeometry ? 'car-road' : 'pedestrian'} geometry · estimated cycling time (not bicycle-verified)`
+        ? 'Amazon Location Routes V2 car-road geometry · estimated cycling time (not bicycle-verified)'
         : 'Amazon Location Routes V2',
     };
   });
