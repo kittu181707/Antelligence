@@ -156,8 +156,10 @@ export function Map({ trips, liveLocation, isDemo = false }: {
 }) {
   const container = useRef<HTMLDivElement>(null);
   const pointer = useRef<{ x: number; y: number; original: View } | null>(null);
+  const hasCenteredGps = useRef(false);
   const [extent, setExtent] = useState<Extent>({ width: 350, height: 275 });
   const [view, setView] = useState<View>(() => ({ center: valid(liveLocation) ? liveLocation : INDIA, zoom: valid(liveLocation) ? 12 : 4 }));
+  const [fallbackView, setFallbackView] = useState<View>(() => ({ center: valid(liveLocation) ? liveLocation : INDIA, zoom: valid(liveLocation) ? 12 : 4 }));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hasTile, setHasTile] = useState(false);
   const [mapNote, setMapNote] = useState('');
@@ -190,11 +192,17 @@ export function Map({ trips, liveLocation, isDemo = false }: {
   }, [points, extent.width, extent.height]);
 
   useEffect(() => {
-    if (points.length === 0 && valid(liveLocation)) {
-      setView((old) => old.center.lat === liveLocation.lat && old.center.lon === liveLocation.lon
-        ? old : { center: liveLocation, zoom: old.zoom < 8 ? 12 : old.zoom });
+    if (!hasCenteredGps.current && points.length === 0 && valid(liveLocation)) {
+      hasCenteredGps.current = true;
+      setView((old) => ({ center: liveLocation, zoom: old.zoom < 8 ? 12 : old.zoom }));
     }
   }, [liveLocation?.lat, liveLocation?.lon, points.length]);
+
+  // An iframe fallback should not navigate dozens of times per second during a drag.
+  useEffect(() => {
+    const timer = window.setTimeout(() => setFallbackView(view), 500);
+    return () => window.clearTimeout(timer);
+  }, [view]);
 
   const tileLoaded = useCallback(() => setHasTile(true), []);
   const zoomTo = (nextZoom: number) => {
@@ -240,7 +248,7 @@ export function Map({ trips, liveLocation, isDemo = false }: {
   return <div className="raster-map" ref={container} aria-label="Interactive route map" data-map-engine="dom-raster" data-map-ready={hasTile ? 'true' : 'fallback'}>
     <div className="raster-map-viewport" onPointerDown={onPointerDown} onPointerMove={onPointerMove}
       onPointerUp={onPointerUp} onPointerCancel={onPointerUp} onWheel={onWheel}>
-      <iframe title="OpenStreetMap basemap fallback" className="raster-basemap-frame" src={fallbackUrl(view, extent, liveLocation)}
+      <iframe title="OpenStreetMap basemap fallback" className="raster-basemap-frame" src={fallbackUrl(fallbackView, extent, liveLocation)}
         loading="eager" referrerPolicy="strict-origin-when-cross-origin" tabIndex={-1} aria-hidden="true"/>
       {mapTiles.map((tile) => <TileImage key={tile.id} tile={tile} onLoaded={tileLoaded}/>)}
       <svg className="raster-route-overlay" width={extent.width} height={extent.height} viewBox={'0 0 ' + extent.width + ' ' + extent.height} aria-hidden="true">
