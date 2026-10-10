@@ -12,6 +12,7 @@ const assert = (condition, message) => {
 const app = read('src/App.tsx');
 const map = read('src/components/Map.tsx');
 const today = read('src/screens/TodayScreen.tsx');
+const nav = read('src/components/BottomNav.tsx');
 const liveSnapshot = read('src/components/LiveEnvironmentSnapshot.tsx');
 const errorBoundary = read('src/components/ErrorBoundary.tsx');
 const entryFile = read('src/main.tsx');
@@ -51,6 +52,25 @@ assert(app.includes('LiveEnvironmentSnapshot'), 'shared top bar must show real e
 assert(entryFile.includes('<ErrorBoundary') && app.includes('<ErrorBoundary label="Live map"') && app.includes('<ErrorBoundary label="Live conditions"'), 'map and live conditions errors must not cause a white screen');
 assert(errorBoundary.includes('getDerivedStateFromError') && errorBoundary.includes('Try again'), 'render crash must present a recoverable UI');
 assert(app.includes('app-topbar') && app.includes('global-map-col'), 'all pages must use the shared header and compact map');
+assert(nav.includes("['map', 'Map', MapIcon]") && nav.includes("['today', 'Today', CalendarDays]") && nav.includes("['settings', 'Settings', Settings]"),
+  'primary navigation must offer only Today, Map and Settings');
+assert(!nav.includes("['optimize',") && !nav.includes("['impact',") && !nav.includes("['history',"),
+  'unused destinations must not clutter the judging dock');
+assert(nav.includes('aria-current') && app.includes("tab === 'map'"),
+  'active indicator and full-page map must follow the selected tab');
+assert(app.includes('fullpage-map-canvas') && app.includes("tab !== 'map'"),
+  'map page must take full width and preserve entered stops');
+assert(today.includes('Enter your day') && today.includes('Try judge demo · 1 click'),
+  'the primary CTA and one-click judge demo must be easy to recognize');
+assert(today.includes('Google / Apple Calendar · export an .ics file'),
+  'calendar import must advertise portable .ics exports honestly');
+const landingCss = read('src/styles.css');
+assert(landingCss.includes('grid-column: 1 / -1; grid-row: 2') ||
+  landingCss.includes('grid-column: 1 / -1; grid-row: 2;'),
+  'the three-step landing cards must fill the space beneath the map');
+assert(landingCss.includes('overflow: hidden !important') && landingCss.includes('.fullpage-map-screen'),
+  'desktop landing must not scroll and map tab must have independent viewport layout');
+
 assert(app.includes("else if (tab === 'history')") || app.includes("if (tab === 'history')"), 'history must stay within the shared layout');
 const planner = read('src/screens/ImportScreen.tsx');
 assert(planner.includes('Add another stop') && planner.includes('Use my location') && planner.includes('type="time"'), 'planner must support GPS and multiple timed stops');

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Maximize2 } from 'lucide-react';
 import { api } from './api';
 import { BottomNav, type NavTab } from './components/BottomNav';
 import { Drawer } from './components/Drawer';
@@ -88,7 +89,7 @@ export default function App() {
   });
   useEffect(() => {
     let active = true;
-    if (isDemo || analysis || tab !== 'today' || (step !== 'manual' && step !== 'import' && step !== 'travel')) {
+    if (isDemo || analysis || (tab !== 'today' && tab !== 'map') || (step !== 'manual' && step !== 'import' && step !== 'travel')) {
       setPreviewPoints([]);
       return () => { active = false; };
     }
@@ -285,7 +286,8 @@ export default function App() {
 
   const onNav = (next: NavTab) => {
     setTab(next);
-    if (next === 'today') setStep('landing');
+    // Returning from a map preview must not discard a partially edited day.
+    if (next === 'today' && tab !== 'map') setStep('landing');
     if (next === 'optimize') {
       if (analysis) setStep('final');
       else if (agenda.events.length) continueToTravel();
@@ -322,6 +324,27 @@ export default function App() {
           <ErrorBoundary label="Live conditions" compact><LiveEnvironmentSnapshot homeLocation={agenda.homeLocation} liveLocation={liveLocation} isDemo={isDemo} chipMode={true}/></ErrorBoundary>
         </div>
       </header>
+      {tab === 'map' ? (
+        <main className="fullpage-map-screen" aria-label="Full-page interactive map">
+          <div className="fullpage-map-header">
+            <div>
+              <span className="welcome-kicker">EXPLORE YOUR JOURNEY</span>
+              <h2>Live route map</h2>
+              <p>{analysis?.trips.length
+                ? `${analysis.trips.length} analyzed journey(s). Select numbered stops for details.`
+                : previewPoints.length > 1
+                  ? `${previewPoints.length - 1} planned stop(s). Dashed lines are previews, not road routes.`
+                  : 'Your current location is shown when permission is enabled. Add stops to map a day.'}</p>
+            </div>
+            <button type="button" className="fullpage-map-back" onClick={() => onNav('today')}>Back to Today</button>
+          </div>
+          <div className="fullpage-map-canvas">
+            <ErrorBoundary label="Full map" compact>
+              <Map trips={analysis?.trips ?? EMPTY_TRIPS} liveLocation={liveLocation} isDemo={isDemo} previewPoints={previewPoints}/>
+            </ErrorBoundary>
+          </div>
+        </main>
+      ) : (
       <main className={`main-content global-split-layout ${tab === 'today' && step === 'landing' && !agenda.events.length ? 'landing-layout' : ''}`}>
         <section className="global-panel-col">
           {isDemo && <div className="demo-banner">DEMO MODE · Sample routes and conditions</div>}
@@ -339,12 +362,15 @@ export default function App() {
         </section>
         <aside className="global-map-col" aria-label="Live route overview">
           <div className="compact-map-card">
-            <div className="compact-map-head"><div><span className="welcome-kicker">YOUR ROUTE</span><h2>Live map</h2></div><span className="location-indicator">{liveLocation ? 'Location detected' : 'Enable location for live position'}</span></div>
-            <div className="compact-map-frame"><ErrorBoundary label="Live map" compact><Map trips={analysis?.trips ?? EMPTY_TRIPS} liveLocation={liveLocation} isDemo={isDemo} previewPoints={previewPoints} /></ErrorBoundary></div>
+            <div className="compact-map-head"><div><span className="welcome-kicker">YOUR ROUTE</span><h2>Live map</h2></div><div className="compact-map-head-actions"><span className="location-indicator">{liveLocation ? 'Location detected' : 'Enable location for live position'}</span><button type="button" className="compact-map-expand" title="Expand map to full page" aria-label="Expand map to full page" onClick={() => onNav('map')}><Maximize2 size={16}/></button></div></div>
+            <div className="compact-map-frame" title="Click map to open full-page view" onClick={(event) => {
+              if (!(event.target as HTMLElement).closest('button, a')) onNav('map');
+            }}><ErrorBoundary label="Live map" compact><Map trips={analysis?.trips ?? EMPTY_TRIPS} liveLocation={liveLocation} isDemo={isDemo} previewPoints={previewPoints} /></ErrorBoundary></div>
             <p className="compact-map-note">{analysis?.trips.length ? `${analysis.trips.length} journey${analysis.trips.length === 1 ? '' : 's'} mapped · Click stops for details` : previewPoints.length > 1 ? `${previewPoints.length - 1} stop(s) placed · Dashed straight-line preview; Analyze for actual roads.` : 'Your live position appears here. Add stops and analyze to plot your day.'}</p>
           </div>
         </aside>
       </main>
+      )}
       <BottomNav active={tab} onChange={onNav}/>
     </div>
   );

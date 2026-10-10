@@ -106,25 +106,74 @@ try {
   // Judge-facing homepage: wider map on the RIGHT without increasing its height.
   assert(await page.locator('.landing-dashboard .landing-hero').isVisible(), 'landing page needs a visible product hero');
   assert.equal(await page.locator('.landing-method-card').count(), 3, 'explain the product in three credible steps');
-  assert(await page.getByRole('button', { name: 'Enter Origin & Destination' }).isVisible(), 'primary planning action absent');
-  assert(await page.getByRole('button', { name: 'Load Demo Route' }).isVisible(), 'working demo action absent');
+  assert(await page.getByRole('button', { name: 'Enter your day' }).isVisible(), 'primary planning action absent');
+  assert(await page.getByRole('button', { name: 'Try judge demo · 1 click' }).isVisible(), 'working demo action absent');
   const heroRect = await page.locator('.landing-hero').boundingBox();
   const landingMapRect = await page.locator('.compact-map-frame').boundingBox();
   assert(heroRect && landingMapRect && landingMapRect.width >= 400,
     'judge-facing map must be wider than the previous 342px frame: ' + JSON.stringify(landingMapRect));
-  assert(Math.abs(landingMapRect.height - 275) <= 2,
-    'wider landing map must NOT become taller: ' + JSON.stringify(landingMapRect));
+  assert(Math.abs(landingMapRect.height - 235) <= 2,
+    'landing map must stay compact: ' + JSON.stringify(landingMapRect));
   assert(landingMapRect.x >= heroRect.x + heroRect.width + 9,
     'landing map must occupy its own right column without overlapping the hero');
-  assert(await page.locator('.landing-provenance').getByText('modeled estimates', { exact: false }).isVisible(),
-    'landing claims must identify environmental estimates');
+  assert(await page.locator('.landing-hero').getByText('modeled air quality', { exact: false }).isVisible(),
+    'visible landing hero must identify model data without assuming measured personal exposure');
+  assert.equal(await page.locator('.bottom-nav button').count(), 3,
+    'dock must contain only Today, Map and Settings');
+  assert.deepEqual(await page.locator('.bottom-nav button span').allTextContents(),
+    ['Today', 'Map', 'Settings'], 'three-tab navigation labels changed');
+  assert(await page.getByText('Google / Apple Calendar · export an .ics file').isVisible(),
+    'calendar import must identify supported .ics exports, not claim OAuth connection');
+  assert(await page.getByRole('button', { name: 'Try judge demo · 1 click' }).isVisible(),
+    'one-click judge demo must be clearly discoverable');
+  assert(await page.getByRole('button', { name: 'Enter your day' }).isVisible(),
+    'primary action must say Enter your day');
+  const methodRect = await page.locator('.landing-method').boundingBox();
+  assert(methodRect && methodRect.x <= heroRect.x + 2 &&
+    methodRect.width > heroRect.width + landingMapRect.width * .70,
+    'three step cards must span below BOTH the hero and map');
+  await page.setViewportSize({ width: 1280, height: 640 });
+  await page.waitForTimeout(250);
+  const viewportResult = await page.evaluate(() => {
+    const main = document.querySelector('.landing-layout');
+    const cards = document.querySelector('.landing-method-grid');
+    const nav = document.querySelector('.bottom-nav');
+    const map = document.querySelector('.compact-map-frame');
+    const hero = document.querySelector('.landing-hero');
+    const pos = (el) => el?.getBoundingClientRect();
+    return {
+      scrollHeight: main?.scrollHeight, clientHeight: main?.clientHeight,
+      cards: pos(cards), nav: pos(nav), map: pos(map), hero: pos(hero),
+    };
+  });
+  assert(viewportResult.scrollHeight <= viewportResult.clientHeight + 2,
+    'desktop homepage must not require vertical scrolling: ' + JSON.stringify(viewportResult));
+  assert(viewportResult.cards && viewportResult.nav &&
+    viewportResult.cards.bottom <= viewportResult.nav.top - 8,
+    'landing cards must fit above floating navigation at 1280×640: ' + JSON.stringify(viewportResult));
+  assert(viewportResult.map && viewportResult.map.height <= 222,
+    'short desktop map must become compact vertically');
+  await page.screenshot({ path: '/tmp/pollution-landing-short-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 1365, height: 768 });
+  await page.waitForTimeout(180);
+  await page.getByRole('button', { name: 'Expand map to full page' }).click();
+  assert(await page.locator('.fullpage-map-screen').isVisible(),
+    'the small map header must open full-page route map');
+  assert(await page.getByRole('button', { name: 'Map', exact: true }).getAttribute('aria-current') === 'page',
+    'expanding map must highlight Map tab');
+  await page.getByRole('button', { name: 'Back to Today' }).click();
+  assert(await page.locator('.landing-hero').isVisible(), 'Back to Today should restore original landing');
+  await page.locator('.compact-map-frame').click({ position: { x: 30, y: 85 } });
+  assert(await page.locator('.fullpage-map-screen').isVisible(),
+    'clicking map tile itself must also open the full-page map');
+  await page.getByRole('button', { name: 'Back to Today' }).click();
   await page.screenshot({ path: '/tmp/pollution-landing-desktop.png', fullPage: true });
 
   await page.setViewportSize({ width: 1024, height: 768 });
   await page.waitForTimeout(200);
   const tabletMap = await page.locator('.compact-map-frame').boundingBox();
-  assert(tabletMap && tabletMap.width >= 320 && Math.abs(tabletMap.height - 275) <= 2,
-    'tablet map should remain wide and 275px tall');
+  assert(tabletMap && tabletMap.width >= 320 && Math.abs(tabletMap.height - 235) <= 2,
+    'tablet map should remain wide and 235px tall');
   assert(await page.locator('.landing-hero').isVisible(), 'tablet pitch should render');
   await page.screenshot({ path: '/tmp/pollution-landing-tablet.png', fullPage: true });
 
@@ -149,7 +198,7 @@ try {
     await page.waitForTimeout(1700);
     await check('hard-refresh ' + (i + 1));
   }
-  const input = page.getByRole('button', { name: 'Enter Origin & Destination' });
+  const input = page.getByRole('button', { name: 'Enter your day' });
   await input.click();
   const indianDate = (now = new Date()) => {
     const parts = new Intl.DateTimeFormat('en-GB', {
@@ -216,14 +265,35 @@ try {
   }
   await check('multi-stop editor');
 
-  for (const tab of ['Today', 'Optimize', 'Impact', 'India', 'History', 'Settings', 'Today']) {
-    await page.getByRole('button', { name: tab, exact: true }).click();
-    await check(tab + ' tab');
-  }
+  // Map must be a true full-page map and active highlight must follow it.
+  await page.getByRole('button', { name: 'Map', exact: true }).click();
+  assert(await page.locator('.fullpage-map-screen').isVisible(), 'Map tab must expand shared map to full-page view');
+  assert.equal(await page.locator('[data-map-engine="dom-raster"]').count(), 1,
+    'full-page map must use one stable map instance, not overlapping duplicates');
+  assert(await page.locator('.fullpage-map-screen .raster-stop-marker.preview').count() >= 3,
+    'full-page map should preserve draft preview markers');
+  const fullBounds = await page.locator('.fullpage-map-canvas').boundingBox();
+  assert(fullBounds && fullBounds.width >= 1000 && fullBounds.height >= 350,
+    'full-page map must occupy available content area: ' + JSON.stringify(fullBounds));
+  assert(await page.getByRole('button', { name: 'Map', exact: true }).getAttribute('aria-current') === 'page',
+    'Map tab must be highlighted when map page is visible');
+  await page.getByRole('button', { name: 'Today', exact: true }).click();
+  assert.equal(await page.locator('.itinerary-stop').count(), 3,
+    'returning from Map must preserve the planner and entered stops');
+  assert(await page.getByRole('button', { name: 'Today', exact: true }).getAttribute('aria-current') === 'page',
+    'Today tab must be highlighted on returning to planner');
+  await check('returned planner with map state preserved');
+
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await check('Settings tab');
+  assert(await page.getByRole('button', { name: 'Settings', exact: true }).getAttribute('aria-current') === 'page',
+    'Settings tab must be highlighted on the Settings page');
+  await page.getByRole('button', { name: 'Today', exact: true }).click();
+  await check('Today tab');
   // Reload clears an unsubmitted planner draft before exercising the demo entry point.
   await page.reload({ waitUntil: 'domcontentloaded' });
   await check('fresh home before demo');
-  await page.getByRole('button', { name: 'Load Demo Route' }).click();
+  await page.getByRole('button', { name: 'Try judge demo · 1 click' }).click();
   await page.waitForSelector('.raster-stop-marker', { timeout: 15000 });
   assert(await page.locator('.raster-stop-marker').count() >= 2, 'analyzed trips must display real stop markers');
   assert((await page.locator('.raster-route-optimized').first().getAttribute('d') || '').length > 20,
@@ -238,7 +308,7 @@ try {
   await check('mobile layout', true);
   await page.screenshot({ path: '/tmp/pollution-home-mobile.png', fullPage: true });
   assert(errors.length === 0, 'Browser JS exceptions: ' + errors.join('; '));
-  console.log('Browser smoke PASSED: 6 hard reloads, delayed data responses, real map sizing and tiles, 3 stops, 7 nav screens, route markers/clicks, mobile rendering; environmental requests=' + envCalls);
+  console.log('Browser smoke PASSED: non-scrolling 1280x640 landing, full-width steps, 3-tab selection, full-page map draft preservation, 6 hard reloads, environmental chips, 3-stop planner, demo route, mobile; environmental requests=' + envCalls);
 } finally {
   await browser.close();
 }
