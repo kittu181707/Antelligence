@@ -50,10 +50,21 @@ export function storeNumber(key: string, value: number) {
   try { localStorage.setItem(key, String(value)); } catch { /* storage is optional */ }
 }
 
-export function localDate() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+// The product and forecasting backend are currently scoped to India (UTC+05:30).
+// Browser timezone can be UTC (automated runners/VPNs) even when routes are in India.
+export function localDate(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(now);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value || '';
+  return `${part('year')}-${part('month')}-${part('day')}`;
 }
+
+// Open-Meteo forecast_days=7 covers the current Indian date and the next six dates.
+export function lastForecastDate(now = new Date()) {
+  return localDate(new Date(now.getTime() + 6 * 86_400_000));
+}
+
 
 export function minutesToTime(minutes: number) {
   const safe = ((minutes % 1440) + 1440) % 1440;
