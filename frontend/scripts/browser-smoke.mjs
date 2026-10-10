@@ -156,6 +156,17 @@ try {
   await page.screenshot({ path: '/tmp/pollution-landing-short-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 1365, height: 768 });
   await page.waitForTimeout(180);
+  await page.getByRole('button', { name: 'Expand map to full page' }).click();
+  assert(await page.locator('.fullpage-map-screen').isVisible(),
+    'the small map header must open full-page route map');
+  assert(await page.getByRole('button', { name: 'Map', exact: true }).getAttribute('aria-current') === 'page',
+    'expanding map must highlight Map tab');
+  await page.getByRole('button', { name: 'Back to Today' }).click();
+  assert(await page.locator('.landing-hero').isVisible(), 'Back to Today should restore original landing');
+  await page.locator('.compact-map-frame').click({ position: { x: 30, y: 85 } });
+  assert(await page.locator('.fullpage-map-screen').isVisible(),
+    'clicking map tile itself must also open the full-page map');
+  await page.getByRole('button', { name: 'Back to Today' }).click();
   await page.screenshot({ path: '/tmp/pollution-landing-desktop.png', fullPage: true });
 
   await page.setViewportSize({ width: 1024, height: 768 });
