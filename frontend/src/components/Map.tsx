@@ -320,7 +320,7 @@ export function Map({ trips, liveLocation, isDemo = false }: { trips: TripAnalys
 
   return <div className="aws-map-shell">
     <div ref={containerRef} className={`aws-live-map ${status === 'fallback' ? 'hidden' : ''}`} aria-label="Interactive live map with daily stops"/>
-    {status === 'fallback' && <MapFallback trips={trips}/>}
+    {status === 'fallback' && <MapFallback trips={trips} liveLocation={liveLocation}/>}
     {status === 'loading' && <div className="map-loading">Loading interactive map…</div>}
     {tileWarning && status === 'live' && <div role="status" className="map-unavailable-hint">Some map tiles could not load. Check the network and zoom to retry.</div>}
     <div className={`map-live-badge ${status === 'fallback' ? 'fallback' : ''}`}>
@@ -334,9 +334,21 @@ export function Map({ trips, liveLocation, isDemo = false }: { trips: TripAnalys
   </div>;
 }
 
-function MapFallback({ trips }: { trips: TripAnalysis[] }) {
+function MapFallback({ trips, liveLocation }: { trips: TripAnalysis[]; liveLocation?: Coordinates | null }) {
   const points = allPoints(trips);
   const project = useMemo(() => projector(points), [trips]);
+  // An iframe map still works when the user's GPU blocks WebGL initialization.
+  if (!points.length) {
+    const lat = liveLocation?.lat ?? 20.5937;
+    const lon = liveLocation?.lon ?? 78.9629;
+    const span = liveLocation ? 0.08 : 10;
+    const bbox = [lon - span, lat - span, lon + span, lat + span].join(',');
+    const url = `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik${liveLocation ? `&marker=${encodeURIComponent(`${lat},${lon}`)}` : ''}`;
+    return <div className="map-no-webgl">
+      <iframe src={url} title="OpenStreetMap fallback when WebGL is not available" loading="lazy" referrerPolicy="strict-origin-when-cross-origin"/>
+      <span className="map-fallback-label">Standard map mode · WebGL unavailable</span>
+    </div>;
+  }
   return <svg className="map-fallback" viewBox="0 0 720 520" role="img" aria-label="Verified route geometry fallback">
     <defs>
       <pattern id="fallback-grid" width="38" height="38" patternUnits="userSpaceOnUse">
