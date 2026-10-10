@@ -116,8 +116,8 @@ try {
     'landing map must stay compact: ' + JSON.stringify(landingMapRect));
   assert(landingMapRect.x >= heroRect.x + heroRect.width + 9,
     'landing map must occupy its own right column without overlapping the hero');
-  assert(await page.locator('.landing-provenance').getByText('modeled estimates', { exact: false }).isVisible(),
-    'landing claims must identify environmental estimates');
+  assert(await page.locator('.landing-hero').getByText('modeled air quality', { exact: false }).isVisible(),
+    'visible landing hero must identify model data without assuming measured personal exposure');
   assert.equal(await page.locator('.bottom-nav button').count(), 3,
     'dock must contain only Today, Map and Settings');
   assert.deepEqual(await page.locator('.bottom-nav button span').allTextContents(),
