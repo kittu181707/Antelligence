@@ -14,7 +14,7 @@ const map = read('src/components/Map.tsx');
 const today = read('src/screens/TodayScreen.tsx');
 const liveSnapshot = read('src/components/LiveEnvironmentSnapshot.tsx');
 const errorBoundary = read('src/components/ErrorBoundary.tsx');
-const root = read('src/main.tsx');
+const entryFile = read('src/main.tsx');
 const travel = read('src/screens/TravelScreen.tsx');
 const accepted = read('src/screens/AcceptedScreen.tsx');
 const india = read('src/screens/IndiaScreen.tsx');
@@ -37,7 +37,7 @@ assert(india.includes('maps.geo.') && india.includes("traffic: 'All'"), 'India m
 assert(!india.includes('react-leaflet') && !india.includes('cartocdn'), 'India view must not reintroduce third-party map tiles');
 
 assert(app.includes('LiveEnvironmentSnapshot'), 'shared top bar must show real environmental data across pages');
-assert(root.includes('<ErrorBoundary') && app.includes('<ErrorBoundary label="Live map"') && app.includes('<ErrorBoundary label="Live conditions"'), 'map and live conditions errors must not cause a white screen');
+assert(entryFile.includes('<ErrorBoundary') && app.includes('<ErrorBoundary label="Live map"') && app.includes('<ErrorBoundary label="Live conditions"'), 'map and live conditions errors must not cause a white screen');
 assert(errorBoundary.includes('getDerivedStateFromError') && errorBoundary.includes('Try again'), 'render crash must present a recoverable UI');
 assert(app.includes('app-topbar') && app.includes('global-map-col'), 'all pages must use the shared header and compact map');
 assert(app.includes("else if (tab === 'history')") || app.includes("if (tab === 'history')"), 'history must stay within the shared layout');
