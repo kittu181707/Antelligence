@@ -27,7 +27,7 @@ assert(map.includes('maps.geo.') && map.includes('/v2/styles/'), 'primary map mu
 assert(map.includes("traffic: 'All'"), 'Amazon map must render live traffic');
 assert(map.includes('NavigationControl') && map.includes('fitBounds'), 'live map must remain interactive');
 assert(map.includes('api.runtimeConfig'), 'map key must be auto-discovered at runtime');
-assert(map.includes('MapFallback'), 'map must preserve a no-blank fallback');
+assert(map.includes('MapFallback') && map.includes('openstreetmap.org/export/embed.html'), 'map must preserve a real basemap without WebGL');
 assert(map.includes('OPEN_MAP_STYLE') && map.includes('openstreetmap.org'), 'map must load real public tiles when Amazon credentials fail');
 assert(map.includes('ResizeObserver') && map.includes('webglcontextrestored'), 'map must recover from container resize and WebGL changes');
 assert(map.includes('errorCount >= 4') && !map.includes("else if (!map.isStyleLoaded())"), 'transient tile errors must not hide map permanently');
