@@ -69,6 +69,8 @@ export function LiveEnvironmentSnapshot({ homeLocation, liveLocation, isDemo, ch
   const [, setClock] = useState(0);
   // Small GPS movements should not clear data and launch another request every second.
   const locationKey = liveLocation ? `${liveLocation.lat.toFixed(3)},${liveLocation.lon.toFixed(3)}` : '';
+  // Live GPS remains the status source while an itinerary address is being typed.
+  const homeQueryKey = liveLocation ? '' : homeLocation;
 
   useEffect(() => {
     let active = true;
@@ -103,19 +105,19 @@ export function LiveEnvironmentSnapshot({ homeLocation, liveLocation, isDemo, ch
     };
 
     setBusy(true);
-    setEnvironment(null);
-    setQuery(null);
-    setError(undefined);
-    void resolveQuery().then((next) => {
-      if (active) setQuery(next);
-    }).catch(() => {
-      if (!active) return;
-      setBusy(false);
-      setError('Set your home location or allow location access for live conditions.');
-    });
-
-    return () => { active = false; };
-  }, [homeLocation, isDemo, locationKey]);
+    // Preserve the last successfully read values through a short refresh.
+    // The old code set environment=null at *every keystroke* in the planner.
+    const timer = window.setTimeout(() => {
+      void resolveQuery().then((next) => {
+        if (active) setQuery(next);
+      }).catch(() => {
+        if (!active) return;
+        setBusy(false);
+        setError('Allow location access or enter a valid home address.');
+      });
+    }, liveLocation ? 0 : 850);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [homeQueryKey, isDemo, locationKey]);
 
   useEffect(() => {
     if (isDemo || !query) return;
@@ -132,7 +134,7 @@ export function LiveEnvironmentSnapshot({ homeLocation, liveLocation, isDemo, ch
         }
       } catch (cause) {
         if (active) {
-          setEnvironment(null); // Never show previous location/failed feed as live data.
+          // Last good observation stays visible, but carries a stale-data warning.
           setError(cause instanceof Error ? cause.message : 'Live conditions unavailable');
         }
       } finally {
@@ -159,7 +161,7 @@ export function LiveEnvironmentSnapshot({ homeLocation, liveLocation, isDemo, ch
   if (!environment) {
     if (chipMode) {
       return (
-        <div className="environment-chip-row">
+        <div className="environment-chip-row" title={error || 'Waiting for live location and conditions'}>
           <div className="env-chip error"><LocateFixed size={14}/> <span>{busy ? 'CONNECTING...' : 'LIVE CONDITIONS UNAVAILABLE'}</span></div>
         </div>
       );
@@ -184,7 +186,7 @@ export function LiveEnvironmentSnapshot({ homeLocation, liveLocation, isDemo, ch
         <div className="env-chip"><Wind size={14}/> <span>PM2.5 {environment.pm25.toFixed(0)}</span></div>
         <div className="env-chip"><Wind size={14}/> <span>PM10 {environment.pm10.toFixed(0)}</span></div>
         <div className="env-chip"><Sun size={14}/> <span>UV {environment.uvIndex.toFixed(1)}</span></div>
-        <div className="env-chip" title={environment.source}><span>{isDemo ? 'DEMO DATA' : `${environment.source.includes('Open-Meteo') ? 'MODEL' : 'PROVIDER'} · ${ageLabel(environment.updatedAt)}`}</span></div>
+        <div className={`env-chip ${error ? 'error' : ''}`} title={error || environment.source}><span>{isDemo ? 'DEMO DATA' : error ? 'LAST READINGS · RETRYING' : `${environment.source.includes('Open-Meteo') ? 'MODEL' : 'PROVIDER'} · ${ageLabel(environment.updatedAt)}`}</span></div>
       </div>
     );
   }
@@ -205,6 +207,7 @@ export function LiveEnvironmentSnapshot({ homeLocation, liveLocation, isDemo, ch
       <div className="snapshot-metric"><Sun size={15}/><span className="label">UV</span><strong>{environment.uvIndex.toFixed(1)}</strong><small>index</small></div>
       <div className="snapshot-metric"><CloudRain size={15}/><span className="label">Rain</span><strong>{environment.rainProbability.toFixed(0)}%</strong><small>{environment.windSpeed.toFixed(0)} km/h wind</small></div>
     </div>
+    {error && <p className="fine-print" role="status">Last known environmental conditions shown. Refresh failed: {error}</p>}
     <div className="snapshot-footer">
       <span>{environment.source} · US EPA AQI, not CPCB station readings{environment.validAt ? ` · valid hour ${environment.validAt}` : ''}</span>
       <span>{busy ? <><RefreshCw className="spin" size={12}/> refreshing</> : ageLabel(environment.updatedAt)}</span>

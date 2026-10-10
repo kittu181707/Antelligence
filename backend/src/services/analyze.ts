@@ -16,7 +16,7 @@ import { scoreRoute } from '../core/exposure';
 import { shiftTime, timeToMinutes, availableMinutes } from '../core/time';
 import { optimizeCandidateSets } from '../core/optimizer';
 
-export const TIME_SHIFT_OPTIONS = [-10, -5, 0, 5, 10] as const;
+export const TIME_SHIFT_OPTIONS = [-5, 0, 5] as const;
 export const ALT_MODE_ORDER: TransportMode[] = ['metro', 'bus', 'car', 'bike', 'walk'];
 const MAX_ENVIRONMENT_SAMPLES = 3;
 
@@ -81,7 +81,10 @@ async function buildCandidateSet(
     jobs.push({ mode: journey.mode, shift, departureTime, includeAlternative: shift === 0 });
   }
 
-  for (const mode of ALT_MODE_ORDER.filter((mode) => mode !== journey.mode && (demoMode || mode !== 'bike'))) {
+  // Transit provider coverage is incomplete in many Indian cities. Never
+  // start speculative bus/metro API calls for a Car or Walk live journey.
+  const safeModes = demoMode ? ALT_MODE_ORDER : (['car', 'walk'] as TransportMode[]);
+  for (const mode of safeModes.filter((mode) => mode !== journey.mode)) {
     jobs.push({ mode, shift: 0, departureTime: journey.departureTime, includeAlternative: false });
   }
 
@@ -121,7 +124,7 @@ async function buildCandidateSet(
   if (originalRoutingError) {
     throw originalRoutingError instanceof Error
       ? originalRoutingError
-      : new Error(`Could not route ${journey.origin} → ${journey.destination}`);
+      : new Error('Could not route this journey. Check its locations and selected travel mode.');
   }
 
   const originalRoute = routeCandidates.find(({ route, job }) =>

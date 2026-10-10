@@ -57,9 +57,15 @@ assert(planner.includes('Add another stop') && planner.includes('Use my location
 assert(!today.includes('<strong>86</strong>') && !today.includes('Source: CPCB • Updated 4 min ago'), 'fake environmental snapshot must not return');
 assert(liveSnapshot.includes('api.currentEnvironment'), 'live snapshot must call backend environmental feed');
 assert(liveSnapshot.includes('isEnvironmentSnapshot(next)') && liveSnapshot.includes('REQUIRED_MEASUREMENTS'), 'invalid environmental JSON must be rejected before rendering');
+assert(!liveSnapshot.includes('setEnvironment(null); // Never show previous'), 'environment must not clear last readings on itinerary edits');
 assert(liveSnapshot.includes('5 * 60_000'), 'live snapshot must refresh every five minutes');
 assert(liveSnapshot.includes('navigator.geolocation'), 'live snapshot must support browser location when home is unknown');
 assert(api.includes('/api/runtime-config') && api.includes('/api/environment/current'), 'live frontend APIs missing');
+assert(api.includes('/api/places/resolve') && template.includes('ResolvePlaceFunction'), 'live place geocoding endpoint missing');
+assert(map.includes('raster-route-preview') && app.includes('previewPoints={previewPoints}'), 'map must preview typed stops before analysis');
+assert(travel.includes('Use Car for all journeys') && travel.includes('Live bus and metro availability'), 'unsupported live transit must have an actionable fallback');
+const styles = read('src/styles.css');
+assert(styles.includes('position: static !important') && styles.includes('.review-actions'), 'planner CTA must not float over form or navigation');
 
 assert(app.includes("else if (step === 'travel') content = <TravelScreen"), 'travel confirmation screen must be reachable');
 assert(app.includes('isDemo={isDemo}'), 'demo/live provenance must flow into screens and map');
@@ -70,5 +76,5 @@ assert(utils.includes("raw === null"), 'missing extra-travel preference must use
 assert(utils.includes("crypto.subtle.digest"), 'private user ID must derive from bearer secret');
 assert(api.includes("Authorization:"), 'private API requests must include bearer secret');
 assert(backendAuth.includes("timingSafeEqual"), 'server must compare user identity safely');
-assert(liveSnapshot.includes("setEnvironment(null)"), 'stale live conditions must be discarded');
+assert(liveSnapshot.includes('LAST READINGS · RETRYING') && liveSnapshot.includes('setError(cause'), 'preserve and clearly label last good environmental readings on refresh failure');
 console.log('live AWS product and private-session contract passed');

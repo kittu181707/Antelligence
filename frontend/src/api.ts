@@ -24,6 +24,7 @@ async function request<T>(path: string, init?: RequestInit, timeoutMs = 15_000):
 
 export const api = {
   getDemoDay: () => request<AgendaPayload>('/api/demo/day'),
+  resolvePlace: (location: string) => request<{ location: string; position: Coordinates; source: string }>('/api/places/resolve', { method: 'POST', body: JSON.stringify({ location }) }, 12_000),
   parseIcs: (icsText: string) => request<AgendaPayload>('/api/ics/parse', { method: 'POST', body: JSON.stringify({ icsText }) }, 20_000),
   analyzeDay: (payload: AnalyzeDayRequest) => request<DayAnalysis>('/api/day/analyze', { method: 'POST', body: JSON.stringify(payload) }, 75_000),
   acceptPlan: (userId: string, planId: string) => request<AcceptedPlan>('/api/plan/accept', { method: 'POST', body: JSON.stringify({ userId, planId }) }),

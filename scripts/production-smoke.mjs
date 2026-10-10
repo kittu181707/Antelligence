@@ -136,3 +136,53 @@ for (const city of cities) {
     // External weather providers may be unavailable; report, do not fabricate.
   }
 }
+
+
+/**
+ * Real-provider regression gate. Do NOT accept this temporary draft.
+ * Unlike demo smoke, this exercises actual Amazon Location car routes,
+ * environmental forecast samples, fixed-appointment feasibility and map geometry.
+ */
+const testDate = new Date(Date.now() + 2 * 86_400_000).toLocaleDateString('sv-SE', { timeZone: 'Asia/Kolkata' });
+const gunturOrigin = '16.306700,80.436500';
+const gunturDestination = '16.318000,80.448000';
+const resolvedPlace = await request('/api/places/resolve', {
+  method: 'POST', authenticated: true, body: { location: 'Guntur, Andhra Pradesh, India' }, timeout: 15_000,
+});
+check(resolvedPlace, 'Live AWS Places V2 lookup for typed map preview');
+if (!Number.isFinite(resolvedPlace.data.position?.lat) || !Number.isFinite(resolvedPlace.data.position?.lon)) {
+  throw new Error('Place resolver did not return a map-ready location');
+}
+console.log('AWS Places preview verified for Guntur in', resolvedPlace.durationMs, 'ms');
+const liveTrip = await request('/api/day/analyze', {
+  method: 'POST', authenticated: true, timeout: 29_000,
+  body: {
+    userId,
+    date: testDate,
+    homeLocation: gunturOrigin,
+    maxExtraMinutes: 10,
+    demoMode: false,
+    events: [{ eventId: 'live-smoke-class', title: 'Class', location: gunturDestination,
+      start: '11:30', end: '12:30', fixed: true }],
+    journeys: [{ tripId: 'guntur-real-car', origin: gunturOrigin, destination: gunturDestination,
+      departureTime: '10:30', arriveBy: '11:30', mode: 'car' }],
+  },
+});
+check(liveTrip, 'Live Guntur Amazon Location CAR route and environmental optimizer');
+const realJourney = liveTrip.data.trips?.[0];
+if (liveTrip.data.workflow?.dataMode !== 'live' ||
+  !String(liveTrip.data.workflow.routeSource || '').includes('Amazon Location') ||
+  !realJourney || realJourney.original.mode !== 'car' ||
+  !Array.isArray(realJourney.recommended.geometry) || realJourney.recommended.geometry.length < 2 ||
+  !Number.isFinite(realJourney.original.modeledExposure)) {
+  throw new Error('Real Guntur route has no verified AWS road geometry or modeled exposure');
+}
+console.log('LIVE GUNTUR CAR PASS: ' + JSON.stringify({
+  date: testDate, durationMs: liveTrip.durationMs,
+  provider: liveTrip.data.workflow.routeSource,
+  environment: liveTrip.data.workflow.environmentSource,
+  originalMode: realJourney.original.mode,
+  routePoints: realJourney.recommended.geometry.length,
+  choices: realJourney.candidatesEvaluated,
+  accepted: false,
+}));

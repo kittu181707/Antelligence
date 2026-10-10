@@ -649,3 +649,112 @@ body { overflow-x: hidden; }
 @media (max-width: 760px) {
   .itinerary-editor .itinerary-submit { bottom: calc(96px + env(safe-area-inset-bottom)); }
 }
+
+/* 2026-10 route-planner accessibility and layout repair.
+   Keep primary actions in document flow; the floating nav must never overlap them. */
+.global-split-layout {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-bottom: 154px;
+  scroll-padding-bottom: 160px;
+}
+.global-panel-col { min-width: 0; width: 100%; }
+.global-panel-col > .screen { max-width: 860px; padding: 4px 0 165px; overflow: visible; }
+.itinerary-editor,
+.travel-review { display: flex; flex-direction: column; align-items: stretch; gap: 20px; }
+.itinerary-editor .screen-title,
+.travel-review .screen-title { margin: 0; }
+.itinerary-editor .screen-title h1,
+.travel-review .screen-title h1 { margin: 4px 0 0; font-size: clamp(23px, 2.3vw, 31px); letter-spacing: -.035em; }
+.itinerary-editor .screen-title p,
+.travel-review .screen-title p { max-width: 630px; line-height: 1.55; color: #64748b; }
+.itinerary-section,
+.itinerary-stop,
+.journey-editor-card,
+.review-budget { border-radius: 16px; background: white; border: 1px solid #e1e8e4; box-shadow: 0 2px 9px rgba(15, 23, 42, .025); }
+.itinerary-section { padding: clamp(17px, 2.2vw, 24px); gap: 12px; }
+.itinerary-editor input[type="text"],
+.itinerary-editor input:not([type]),
+.itinerary-editor input[type="date"],
+.itinerary-editor input[type="time"],
+.travel-review input[type="time"] {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-height: 44px;
+  min-width: 0;
+  background: #fff;
+  color: #0f172a;
+  border: 1px solid #d9e1dc;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 1.4;
+  box-sizing: border-box;
+}
+.itinerary-editor input:focus-visible,
+.travel-review input:focus-visible { outline: 2px solid #059669; outline-offset: 1px; border-color: #059669; }
+.itinerary-editor label,
+.travel-review label { font-size: 12px; font-weight: 650; color: #475569; }
+.itinerary-topline { min-height: 45px; align-items: center; }
+.itinerary-topline input[type=date] { width: 178px; }
+.origin-row { align-items: stretch; display: grid; grid-template-columns: minmax(0,1fr) max-content; }
+.origin-row .secondary { display: flex; gap: 7px; align-items: center; justify-content: center; border-radius: 10px; padding: 10px 15px; }
+.itinerary-stops-head { display: flex; justify-content: space-between; align-items: center; margin-top: 2px; }
+.itinerary-list { display: grid; grid-template-columns: 1fr; gap: 14px; }
+.itinerary-stop { grid-template-columns: 32px minmax(0,1fr) 36px; padding: 17px; align-items: start; gap: 14px; }
+.itinerary-stop .stop-number { margin-top: 6px; }
+.stop-inputs { gap: 12px; }
+.stop-time-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
+.stop-time-grid label { display: flex; flex-direction: column; gap: 7px; }
+.itinerary-stop .icon-button { height: 36px; width: 36px; display: grid; place-items: center; border-radius: 10px; }
+.itinerary-add { width: 100%; min-height: 49px; display: flex; align-items: center; justify-content: center; gap: 7px; border-radius: 12px; }
+.itinerary-editor .itinerary-submit {
+  position: static !important;
+  bottom: auto !important;
+  z-index: auto !important;
+  width: 100%;
+  flex: 0 0 auto;
+  min-height: 52px;
+  margin: 5px 0 15px;
+  box-shadow: none;
+}
+.global-panel-col .itinerary-editor .screen-title { margin-top: 3px; }
+.travel-review .journey-list { display: grid; grid-template-columns: minmax(0,1fr); gap: 15px; }
+.travel-review .journey-editor-card { padding: clamp(16px, 2vw, 23px); }
+.journey-editor-head { display: flex; align-items: center; gap: 11px; margin-bottom: 19px; }
+.journey-route-label { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; min-width: 0; font-size: 14px; line-height: 1.6; }
+.journey-route-label strong { overflow-wrap: anywhere; font-weight: 650; }
+.journey-route-label svg { flex: 0 0 auto; color: #059669; }
+.journey-editor-departure { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; margin-bottom: 19px; }
+.journey-editor-departure input { max-width: 165px; flex: 0 0 165px; }
+.journey-editor-departure span { font-size: 12px; color: #64748b; }
+.journey-mode-title { font-size: 12px; font-weight: 700; margin-bottom: 9px; color: #475569; }
+.journey-mode-options { display: grid !important; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 8px !important; }
+.journey-mode-options button { min-height: 41px; padding: 8px 5px; font-size: 13px; border-radius: 9px; }
+.journey-mode-options button.selected { color: #065f46; border: 1px solid #34d399; background: #d1fae5; }
+.route-warning { display: flex; align-items: flex-start; gap: 9px; padding: 13px 14px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 11px; font-size: 12px; line-height: 1.55; color: #92400e; }
+.route-warning svg { flex: 0 0 auto; }
+.review-actions { display: flex; flex-direction: column; gap: 15px; margin: 0 0 25px; }
+.review-budget { padding: 18px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; }
+.review-budget strong { font-size: 14px; }
+.review-budget p { margin: 7px 0 0; font-size: 12px; color: #64748b; }
+.review-budget .segmented { display: flex; flex-wrap: wrap; gap: 5px; }
+.review-budget .segmented button { min-height: 35px; white-space: nowrap; padding: 6px 12px; }
+.travel-review .error-banner { display: flex; flex-direction: column; gap: 10px; overflow-wrap: anywhere; }
+.travel-review .analyze-submit { min-height: 52px; margin-bottom: 12px; }
+@media(max-width:760px) {
+  .global-split-layout { padding-bottom: 156px; }
+  .global-panel-col > .screen { padding-bottom: 145px; }
+  .itinerary-editor, .travel-review { gap: 16px; }
+  .itinerary-section, .itinerary-stop { padding: 14px; }
+  .origin-row { grid-template-columns: 1fr; }
+  .origin-row .secondary { width: 100%; }
+  .journey-mode-options { gap: 5px !important; }
+  .journey-mode-options button { font-size: 11px; }
+}
+@media(max-width:440px) {
+  .itinerary-stop { grid-template-columns: 25px minmax(0,1fr) 30px; gap: 8px; }
+  .stop-time-grid { gap: 7px; }
+  .itinerary-editor input[type=time] { padding: 8px 4px; font-size: 13px; }
+}

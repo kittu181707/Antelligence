@@ -339,6 +339,31 @@ Resources:
             Path: /api/india
             Method: get
 
+  ResolvePlaceFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints: [src/handlers/resolve-place.ts]
+        Minify: true
+        Target: es2022
+        Sourcemap: false
+    Properties:
+      CodeUri: backend/
+      Handler: src/handlers/resolve-place.handler
+      Timeout: 12
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: geo-places:Geocode
+              Resource: '*'
+      Events:
+        ResolvePlace:
+          Type: Api
+          Properties:
+            Path: /api/places/resolve
+            Method: post
+
   EnvironmentCurrentFunction:
     Type: AWS::Serverless::Function
     Metadata:
