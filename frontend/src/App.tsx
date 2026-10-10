@@ -322,7 +322,7 @@ export default function App() {
           <ErrorBoundary label="Live conditions" compact><LiveEnvironmentSnapshot homeLocation={agenda.homeLocation} liveLocation={liveLocation} isDemo={isDemo} chipMode={true}/></ErrorBoundary>
         </div>
       </header>
-      <main className="main-content global-split-layout">
+      <main className={`main-content global-split-layout ${tab === 'today' && step === 'landing' && !agenda.events.length ? 'landing-layout' : ''}`}>
         <section className="global-panel-col">
           {isDemo && <div className="demo-banner">DEMO MODE · Sample routes and conditions</div>}
           {content}
