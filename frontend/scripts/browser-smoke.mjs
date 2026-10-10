@@ -103,6 +103,41 @@ try {
 
   await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
   await check('initial home');
+  // Judge-facing homepage: wider map on the RIGHT without increasing its height.
+  assert(await page.locator('.landing-dashboard .landing-hero').isVisible(), 'landing page needs a visible product hero');
+  assert.equal(await page.locator('.landing-method-card').count(), 3, 'explain the product in three credible steps');
+  assert(await page.getByRole('button', { name: 'Enter Origin & Destination' }).isVisible(), 'primary planning action absent');
+  assert(await page.getByRole('button', { name: 'Load Demo Route' }).isVisible(), 'working demo action absent');
+  const heroRect = await page.locator('.landing-hero').boundingBox();
+  const landingMapRect = await page.locator('.compact-map-frame').boundingBox();
+  assert(heroRect && landingMapRect && landingMapRect.width >= 400,
+    'judge-facing map must be wider than the previous 342px frame: ' + JSON.stringify(landingMapRect));
+  assert(Math.abs(landingMapRect.height - 275) <= 2,
+    'wider landing map must NOT become taller: ' + JSON.stringify(landingMapRect));
+  assert(landingMapRect.x >= heroRect.x + heroRect.width + 9,
+    'landing map must occupy its own right column without overlapping the hero');
+  assert(await page.locator('.landing-provenance').getByText('modeled estimates', { exact: false }).isVisible(),
+    'landing claims must identify environmental estimates');
+  await page.screenshot({ path: '/tmp/pollution-landing-desktop.png', fullPage: true });
+
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.waitForTimeout(200);
+  const tabletMap = await page.locator('.compact-map-frame').boundingBox();
+  assert(tabletMap && tabletMap.width >= 320 && Math.abs(tabletMap.height - 275) <= 2,
+    'tablet map should remain wide and 275px tall');
+  assert(await page.locator('.landing-hero').isVisible(), 'tablet pitch should render');
+  await page.screenshot({ path: '/tmp/pollution-landing-tablet.png', fullPage: true });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(200);
+  const smallMap = await page.locator('.compact-map-frame').boundingBox();
+  assert(smallMap && smallMap.width >= 280 && smallMap.height <= 232,
+    'mobile map should stack and retain compact 230px height');
+  assert(await page.locator('.landing-primary').isVisible(), 'mobile main CTA must remain available');
+  assert.equal(await page.locator('.landing-method-card').count(), 3, 'mobile product explanation should stack');
+  await page.screenshot({ path: '/tmp/pollution-landing-mobile.png', fullPage: true });
+  await page.setViewportSize({ width: 1365, height: 768 });
+  await page.waitForTimeout(200);
   await page.waitForSelector('[data-map-ready="true"]', { timeout: 15000 });
   // Remain completely idle during initial delayed GPS/environment update window.
   await page.waitForTimeout(5000);
