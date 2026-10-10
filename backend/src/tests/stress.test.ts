@@ -107,18 +107,27 @@ async function main() {
     /does not match/,
   );
 
-  await assert.rejects(
-    () => routesForTrip({
-      origin: { lat: 28.6, lon: 77.2 },
-      destination: { lat: 28.7, lon: 77.3 },
-      mode: 'bike',
-      date: '2026-10-07',
-      departureTime: '08:00',
-      demoMode: false,
-      tripOrdinal: 0,
-    }),
-    /Bike routing is unavailable/,
-  );
+  // A bicycle journey must remain accepted by prepare; routing is now
+  // calculated using a clearly labeled AWS pedestrian-geometry estimate.
+  const bikeDay = {
+    userId: 'u1', date: '2026-10-06', demoMode: true,
+    homeLocation: '28.613900, 77.209000', maxExtraMinutes: 10,
+    events: [{ eventId: 'bike-stop', title: 'Gym', location: '28.627800, 77.216500',
+      start: '09:00', end: '10:00', fixed: true }],
+    journeys: [{ tripId: 'bike-leg', origin: '28.613900, 77.209000',
+      destination: '28.627800, 77.216500', departureTime: '08:00',
+      arriveBy: '09:00', mode: 'bike' as const }],
+  };
+  const preparedBike = await prepare(bikeDay);
+  assert.equal(preparedBike.journeys[0].mode, 'bike');
+  const demoBike = await routesForTrip({
+    origin: { lat: 28.6139, lon: 77.2090 },
+    destination: { lat: 28.6278, lon: 77.2165 },
+    mode: 'bike', date: '2026-10-06', departureTime: '08:00',
+    demoMode: true, tripOrdinal: 0,
+  });
+  assert(demoBike[0].travelMinutes > 0);
+
 
   // The browser can supply GPS coordinates directly: geocoding must not require AWS for these.
   assert.deepEqual(await geocode('28.613900, 77.209000', false), { lat: 28.6139, lon: 77.209 });
