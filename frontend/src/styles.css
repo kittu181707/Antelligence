@@ -881,6 +881,7 @@ body { overflow-x: hidden; }
 }
 .landing-cta-stack button:focus-visible { outline: 3px solid #0d9488; outline-offset: 2px; }
 .landing-hero-aside {
+  position: relative;
   display: flex; flex-direction: column; justify-content: center;
   min-width: 0; padding: 17px 12px 14px 15px;
   border: 1px solid #e0eae5;
@@ -896,10 +897,11 @@ body { overflow-x: hidden; }
 }
 .landing-aside-track {
   position: absolute;
+  left: 14px;
+  top: 82px;
   display: flex; flex-direction: column; align-items: center;
   gap: 0;
   height: 116px;
-  transform: translateY(26px);
 }
 .landing-aside-dot { display: block; width: 10px; height: 10px; border-radius: 50%; background: white; border: 2px solid #059669; flex: 0 0 10px; }
 .landing-aside-dot.middle { background: #d1fae5; }
