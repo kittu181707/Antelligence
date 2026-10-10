@@ -124,6 +124,16 @@ try {
     ['Today', 'Map', 'Settings'], 'three-tab navigation labels changed');
   assert(await page.getByText('Google / Apple Calendar · export an .ics file').isVisible(),
     'calendar import must identify supported .ics exports, not claim OAuth connection');
+  const calendarHintBounds = await page.locator('.landing-calendar-hint').boundingBox();
+  const calendarButtonBounds = await page.locator('.landing-import').boundingBox();
+  const demoButtonBounds = await page.locator('.landing-demo').boundingBox();
+  assert(calendarHintBounds && calendarButtonBounds && demoButtonBounds &&
+    calendarHintBounds.y >= calendarButtonBounds.y + calendarButtonBounds.height - 3 &&
+    Math.abs(calendarHintBounds.x + calendarHintBounds.width / 2 -
+      (calendarButtonBounds.x + calendarButtonBounds.width / 2)) <= 10 &&
+    calendarHintBounds.x >= demoButtonBounds.x + demoButtonBounds.width - 5,
+    'Google / Apple hint must sit immediately beneath Import calendar (not beneath the judge demo)');
+
   assert(await page.getByRole('button', { name: 'Try judge demo · 1 click' }).isVisible(),
     'one-click judge demo must be clearly discoverable');
   assert(await page.getByRole('button', { name: 'Enter your day' }).isVisible(),
