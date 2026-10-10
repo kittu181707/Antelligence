@@ -55,14 +55,16 @@ export function TodayScreen({
                   <p className="landing-description">Your schedule stays yours. Explore routes that account for modeled air quality and outdoor conditions—not just the fastest way there.</p>
                   <div className="landing-cta-stack">
                     <button className="primary landing-primary" onClick={onManual} disabled={busy}>
-                      <MapPin size={19} aria-hidden="true"/> <span>Enter Origin &amp; Destination</span> <ArrowUpRight size={18} aria-hidden="true"/>
+                      <MapPin size={19} aria-hidden="true"/> <span>Enter your day</span> <ArrowUpRight size={18} aria-hidden="true"/>
                     </button>
                     <button className="secondary landing-demo" onClick={onDemo} disabled={busy}>
-                      <PlayCircle size={18} aria-hidden="true"/> {busy ? 'Preparing sample route…' : 'Load Demo Route'}
+                      <PlayCircle size={18} aria-hidden="true"/> {busy ? 'Preparing judge demo…' : 'Try judge demo · 1 click'}
                     </button>
-                    <button className="text-button landing-import" onClick={onImport} disabled={busy}>
-                      <Calendar size={16} aria-hidden="true"/> Import Agenda <ArrowRight size={15} aria-hidden="true"/>
+                    <button className="text-button landing-import" onClick={onImport} disabled={busy}
+                      title="Import a .ics calendar file exported from Google Calendar or Apple Calendar">
+                      <Calendar size={16} aria-hidden="true"/> Import calendar <ArrowRight size={15} aria-hidden="true"/>
                     </button>
+                    <span className="landing-calendar-hint">Google / Apple Calendar · export an .ics file</span>
                   </div>
                 </div>
                 <div className="landing-hero-aside" aria-label="Your whole day considered">
