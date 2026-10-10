@@ -14,11 +14,11 @@ const stages = [
 export function AnalysisScreen() {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
-    const interval = window.setInterval(() => setElapsed((seconds) => seconds + 1), 1000);
+    const interval = window.setInterval(() => setElapsed((tick) => tick + 1), 650);
     return () => window.clearInterval(interval);
   }, []);
 
-  const current = Math.min(Math.floor(elapsed / 3), stages.length - 1);
+  const current = Math.min(elapsed, stages.length - 1);
   const stage = stages[current];
   const ActiveIcon = stage.icon;
 
@@ -55,7 +55,7 @@ export function AnalysisScreen() {
             </div>;
           })}
         </div>
-        <p className="analysis-overlay-footer">{elapsed >= 12
+        <p className="analysis-overlay-footer">{elapsed >= 20
           ? 'Still working with live services. Your itinerary is safely preserved.'
           : 'Progress animation is illustrative; results appear when the service responds.'}</p>
       </div>
