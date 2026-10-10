@@ -16,6 +16,7 @@ import { ImpactScreen } from './screens/ImpactScreen';
 import { IndiaScreen } from './screens/IndiaScreen';
 import { TodayScreen } from './screens/TodayScreen';
 import { Map } from './components/Map';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { LiveEnvironmentSnapshot } from './components/LiveEnvironmentSnapshot';
 import type { AcceptedPlan, AgendaPayload, DayAnalysis, JourneyInput, TripAnalysis, Coordinates } from './types';
 import { deriveJourneys, getUserId, localDate, readStoredNumber, storeNumber } from './utils';
@@ -229,7 +230,7 @@ export default function App() {
           <h1>Good morning. <span>Here's your environmental plan for today.</span></h1>
         </div>
         <div className="top-environment">
-          <LiveEnvironmentSnapshot homeLocation={agenda.homeLocation} liveLocation={liveLocation} isDemo={isDemo} chipMode={true}/>
+          <ErrorBoundary label="Live conditions" compact><LiveEnvironmentSnapshot homeLocation={agenda.homeLocation} liveLocation={liveLocation} isDemo={isDemo} chipMode={true}/></ErrorBoundary>
         </div>
       </header>
       <main className="main-content global-split-layout">
@@ -250,7 +251,7 @@ export default function App() {
         <aside className="global-map-col" aria-label="Live route overview">
           <div className="compact-map-card">
             <div className="compact-map-head"><div><span className="welcome-kicker">YOUR ROUTE</span><h2>Live map</h2></div><span className="location-indicator">{liveLocation ? 'Location detected' : 'Enable location for live position'}</span></div>
-            <div className="compact-map-frame"><Map trips={analysis?.trips || []} liveLocation={liveLocation} isDemo={isDemo} /></div>
+            <div className="compact-map-frame"><ErrorBoundary label="Live map" compact><Map trips={analysis?.trips || []} liveLocation={liveLocation} isDemo={isDemo} /></ErrorBoundary></div>
             <p className="compact-map-note">{analysis?.trips.length ? `${analysis.trips.length} journey${analysis.trips.length === 1 ? '' : 's'} mapped · Click stops for details` : 'Your live position appears here. Add stops and analyze to plot your day.'}</p>
           </div>
         </aside>
