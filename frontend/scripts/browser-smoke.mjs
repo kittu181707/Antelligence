@@ -210,6 +210,48 @@ try {
   }
   const input = page.getByRole('button', { name: 'Enter your day' });
   await input.click();
+  // At a judge's laptop viewport, the day planner must not scroll as a whole.
+  await page.setViewportSize({ width: 1280, height: 640 });
+  await page.waitForTimeout(250);
+  const plannerLayout = await page.evaluate(() => {
+    const main = document.querySelector('.planner-layout');
+    const map = document.querySelector('.planner-layout .compact-map-frame');
+    const back = document.querySelector('.planner-layout .itinerary-editor .back');
+    const heading = document.querySelector('.planner-layout .screen-title');
+    const review = document.querySelector('.planner-map-review-button');
+    const mapCard = document.querySelector('.planner-layout .compact-map-card');
+    const leftSubmit = document.querySelector('.planner-layout .itinerary-submit');
+    const dock = document.querySelector('.bottom-nav');
+    const box = (element) => element?.getBoundingClientRect().toJSON();
+    return {
+      scrollHeight: main?.scrollHeight, clientHeight: main?.clientHeight,
+      map: box(map), mapCard: box(mapCard), back: box(back), heading: box(heading),
+      review: box(review), dock: box(dock),
+      leftSubmitDisplay: leftSubmit ? getComputedStyle(leftSubmit).display : null,
+    };
+  });
+  assert(plannerLayout.map && plannerLayout.map.width >= 400 &&
+    plannerLayout.map.height <= 222,
+    'planner map must match landing page width and short-screen height: ' + JSON.stringify(plannerLayout));
+  assert(plannerLayout.scrollHeight <= plannerLayout.clientHeight + 2,
+    'desktop planner must not have an outer vertical scrollbar: ' + JSON.stringify(plannerLayout));
+  assert(plannerLayout.back && plannerLayout.heading &&
+    plannerLayout.back.x < plannerLayout.heading.x + 10 &&
+    plannerLayout.back.bottom <= plannerLayout.heading.top + 1,
+    'Back button must stay top left above Plan your day: ' + JSON.stringify(plannerLayout));
+  assert(plannerLayout.review && plannerLayout.mapCard &&
+    plannerLayout.review.top >= plannerLayout.mapCard.bottom &&
+    plannerLayout.review.left >= plannerLayout.mapCard.left - 2 &&
+    plannerLayout.review.right <= plannerLayout.mapCard.right + 2,
+    'Review journeys must be directly BELOW the right-hand map: ' + JSON.stringify(plannerLayout));
+  assert(plannerLayout.review && plannerLayout.dock &&
+    plannerLayout.review.bottom <= plannerLayout.dock.top - 7,
+    'Review must never be covered by the bottom navigation: ' + JSON.stringify(plannerLayout));
+  assert(plannerLayout.leftSubmitDisplay === 'none',
+    'desktop planner must not show a second Review button on the left');
+  await page.screenshot({ path: '/tmp/pollution-planner-empty-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 1365, height: 768 });
+
   const indianDate = (now = new Date()) => {
     const parts = new Intl.DateTimeFormat('en-GB', {
       timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit',
@@ -230,6 +272,39 @@ try {
     await page.getByRole('button', { name: 'Add another stop' }).click();
   }
   assert.equal(await page.locator('.itinerary-stop').count(), 3, 'three scheduled stops must be editable');
+  // Many stops must scroll INSIDE the left editor, leaving map and Review fixed.
+  await page.setViewportSize({ width: 1280, height: 640 });
+  for (let index = 3; index < 12; index++) {
+    await page.getByRole('button', { name: 'Add another stop' }).click();
+  }
+  assert.equal(await page.locator('.itinerary-stop').count(), 12, 'maximum of twelve stops must remain supported');
+  const overflow = await page.evaluate(() => {
+    const main = document.querySelector('.planner-layout');
+    const list = document.querySelector('.planner-layout .itinerary-list');
+    const review = document.querySelector('.planner-map-review-button');
+    const nav = document.querySelector('.bottom-nav');
+    const listCss = list ? getComputedStyle(list) : null;
+    return {
+      outerScroll: main?.scrollHeight, outerHeight: main?.clientHeight,
+      innerScroll: list?.scrollHeight, innerHeight: list?.clientHeight,
+      listOverflowY: listCss?.overflowY,
+      reviewBottom: review?.getBoundingClientRect().bottom,
+      navTop: nav?.getBoundingClientRect().top,
+    };
+  });
+  assert(overflow.outerScroll <= overflow.outerHeight + 2 &&
+    overflow.innerScroll > overflow.innerHeight + 20 &&
+    overflow.listOverflowY === 'auto' &&
+    overflow.reviewBottom < overflow.navTop - 5,
+    '12 stops must scroll in left stop list, with right Review always visible: ' + JSON.stringify(overflow));
+  await page.getByLabel('Remove stop 12').click();
+  for (let index = 11; index >= 4; index--) {
+    await page.getByLabel('Remove stop ' + index).click();
+  }
+  assert.equal(await page.locator('.itinerary-stop').count(), 3, 'removing extras must preserve first three stops');
+  await page.screenshot({ path: '/tmp/pollution-planner-stops-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 1365, height: 768 });
+
   // Regression for a user-reported time editor disappearance in a small browser.
   // Both native time fields are controlled React inputs; editing must retain the
   // same event and leave the Review button enabled once all details are complete.
@@ -261,6 +336,8 @@ try {
     'editing origin must not reset environmental chips to CONNECTING');
   assert(await page.getByRole('button', { name: 'Review journeys' }).isEnabled(),
     'valid timed three-stop schedule must enable Review journeys');
+  assert(await page.locator('.planner-map-review-button').isVisible(),
+    'desktop Review should be visibly docked under the map');
   await page.getByRole('button', { name: 'Review journeys' }).click();
   assert(await page.getByRole('button', { name: 'Analyze & optimize my day' }).isVisible(),
     'timed multi-stop itinerary must advance to analysis review');
@@ -276,6 +353,8 @@ try {
   await check('multi-stop editor');
 
   // Map must be a true full-page map and active highlight must follow it.
+  await page.waitForFunction(() =>
+    document.querySelectorAll('.raster-stop-marker.preview').length >= 3, null, { timeout: 5000 });
   await page.getByRole('button', { name: 'Map', exact: true }).click();
   assert(await page.locator('.fullpage-map-screen').isVisible(), 'Map tab must expand shared map to full-page view');
   assert.equal(await page.locator('[data-map-engine="dom-raster"]').count(), 1,

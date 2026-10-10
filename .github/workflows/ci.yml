@@ -124,6 +124,8 @@ jobs:
         with:
           name: pollution-browser-smoke
           path: |
+            /tmp/pollution-planner-empty-desktop.png
+            /tmp/pollution-planner-stops-desktop.png
             /tmp/pollution-landing-desktop.png
             /tmp/pollution-landing-tablet.png
             /tmp/pollution-landing-mobile.png

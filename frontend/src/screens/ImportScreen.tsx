@@ -11,6 +11,19 @@ function newEvent(start: string): CalendarEvent {
   return { eventId: uid('event'), title: '', location: '', start, end: nextEnd(start), fixed: true };
 }
 
+/** One source of truth for the form and its map-side Review action. */
+export function canReviewAgenda(agenda: AgendaPayload) {
+  if (agenda.date < localDate() || agenda.date > lastForecastDate() ||
+      !agenda.homeLocation.trim() || agenda.homeLocation.trim().toLowerCase() === 'home' ||
+      !agenda.events.length || agenda.events.length > MAX_STOPS) return false;
+  const ordered = [...agenda.events].sort((a, b) => a.start.localeCompare(b.start));
+  return ordered.every((event, index) =>
+    event.title.trim() && event.location.trim() &&
+    timeToMinutes(event.end) > timeToMinutes(event.start) &&
+    (index === 0 || timeToMinutes(event.start) >= timeToMinutes(ordered[index - 1].end))
+  );
+}
+
 export function ImportScreen({ agenda, setAgenda, mode, onBack, onContinue, onIcs, busy, error, liveLocation }: {
   agenda: AgendaPayload;
   setAgenda: (agenda: AgendaPayload) => void;
@@ -97,7 +110,7 @@ export function ImportScreen({ agenda, setAgenda, mode, onBack, onContinue, onIc
     <button className="dashed itinerary-add" disabled={agenda.events.length >= MAX_STOPS} onClick={add}><Plus size={17}/> Add another stop</button>
     {invalid && ordered.length > 0 && <div className="editor-warning">Complete each stop's name and address, and ensure appointment times don't overlap.</div>}
     {error && <div className="error-banner">{error}</div>}
-    <button className="primary large full itinerary-submit" disabled={busy || invalidDate || !agenda.homeLocation.trim() || agenda.homeLocation === 'Home' || !agenda.events.length || invalid} onClick={onContinue}>
+    <button className="primary large full itinerary-submit" disabled={busy || !canReviewAgenda(agenda)} onClick={onContinue}>
       Review journeys
     </button>
   </div>;
