@@ -90,10 +90,12 @@ assert(app.includes('planner-layout') && app.includes('planner-map-review-button
   app.includes('disabled={busy || !canReviewAgenda(agenda)}'),
   'planner must move the checked Review action below a map-side card');
 assert(styles.includes('.global-split-layout.planner-layout') &&
-  styles.includes('.planner-layout .itinerary-list') &&
-  styles.includes('overflow-y: auto;') &&
+  styles.includes('.planner-layout .global-panel-col') &&
+  styles.includes('scrollbar-gutter: stable;') &&
+  styles.includes('.planner-layout .itinerary-list,') &&
+  styles.includes('overflow: visible;') &&
   styles.includes('.planner-layout .itinerary-editor .itinerary-submit { display: none !important; }'),
-  'desktop planner must use the full-size right map with a scrollable stop list and no duplicate action');
+  'desktop planner must scroll the full left column while keeping the right map-side Review');
 
 
 assert(app.includes("else if (step === 'travel') content = <TravelScreen"), 'travel confirmation screen must be reachable');
