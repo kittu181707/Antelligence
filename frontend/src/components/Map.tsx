@@ -176,7 +176,7 @@ export function Map({ trips, liveLocation, isDemo = false }: {
       }
     };
     refresh();
-    if (!('ResizeObserver' in window)) {
+    if (typeof ResizeObserver === 'undefined') {
       window.addEventListener('resize', refresh);
       return () => window.removeEventListener('resize', refresh);
     }
