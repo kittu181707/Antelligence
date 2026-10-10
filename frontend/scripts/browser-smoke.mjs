@@ -116,6 +116,31 @@ try {
     await page.getByRole('button', { name: 'Add another stop' }).click();
   }
   assert.equal(await page.locator('.itinerary-stop').count(), 3, 'three scheduled stops must be editable');
+  // Regression for a user-reported time editor disappearance in a small browser.
+  // Both native time fields are controlled React inputs; editing must retain the
+  // same event and leave the Review button enabled once all details are complete.
+  const firstDeparture = page.getByLabel('Stop 1 departure');
+  await firstDeparture.fill('10:00');
+  assert.equal(await firstDeparture.inputValue(), '10:00', 'edited leave time must persist');
+  assert.equal(await page.locator('.itinerary-stop').count(), 3, 'time editing must not remove the event');
+  await page.getByLabel('Stop 1 arrival').fill('08:30');
+  assert.equal(await page.getByLabel('Stop 1 departure').inputValue(), '09:15',
+    'changing arrival must update default departure without removing the event');
+  await page.getByLabel('Stop 1 departure').fill('10:00');
+  assert.equal(await page.getByLabel('Stop 1 departure').inputValue(), '10:00');
+  await page.locator('#origin-input').fill('16.306700,80.436500');
+  for (let i = 1; i <= 3; i += 1) {
+    await page.getByLabel('Stop ' + i + ' name').fill('Stop ' + i);
+    await page.getByLabel('Stop ' + i + ' destination').fill('16.' + (306700 + i * 100) + ',80.4' + (36500 + i * 120));
+  }
+  assert(await page.getByRole('button', { name: 'Review journeys' }).isEnabled(),
+    'valid timed three-stop schedule must enable Review journeys');
+  await page.getByRole('button', { name: 'Review journeys' }).click();
+  assert(await page.getByRole('button', { name: 'Analyze & optimize my day' }).isVisible(),
+    'timed multi-stop itinerary must advance to analysis review');
+  await page.getByRole('button', { name: 'Back', exact: false }).first().click();
+  assert.equal(await page.locator('.itinerary-stop').count(), 3, 'returning from review must preserve stops');
+
   for (let i = 1; i <= 3; i += 1) {
     assert(await page.getByRole('textbox', { name: 'Stop ' + i + ' name' }).isVisible(),
       'stop ' + i + ' needs an editable name');
