@@ -93,6 +93,12 @@ export default function App() {
       setPreviewPoints([]);
       return () => { active = false; };
     }
+    // Keep successfully geocoded pins visible while the edited itinerary
+    // re-resolves; immediately discard only pins for stops that were deleted.
+    const ids = new Set(['preview-origin', ...agenda.events.map((event) => event.eventId)]);
+    setPreviewPoints((previous) =>
+      previous.every((point) => ids.has(point.id))
+        ? previous : previous.filter((point) => ids.has(point.id)));
     const timer = window.setTimeout(() => {
       const coordinate = (value: string): Coordinates | null => {
         const match = value.trim().match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
@@ -106,7 +112,6 @@ export default function App() {
         ...ordered.map((event) => ({ id: event.eventId, label: event.title || event.location, location: event.location })),
       ];
       const collected: Array<{ id: string; label: string; point: Coordinates } | null> = Array(locations.length).fill(null);
-      setPreviewPoints([]);
       void (async () => {
         for (let index = 0; index < locations.length && active; index++) {
           const item = locations[index];
