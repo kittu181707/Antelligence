@@ -54,7 +54,6 @@ jobs:
         env:
           VITE_API_BASE_URL: "https://f5vtqmx8ne.execute-api.us-east-1.amazonaws.com/Prod"
           VITE_AWS_REGION: "us-east-1"
-          VITE_AMAZON_LOCATION_API_KEY: "v1.public.eyJqdGkiOiI1ZDFkNGIyYy03OWU2LTQ2NzktYTJhNC01ZGU0M2IyZTUwYWIifRZPKNApA4lAsj_Ow3ch1Mn0qDJBKEoo8e2C5g9xMBFpujoRMQ4hZ389RcXWYmH_5QnbwDm6XBZHKO8EWkkdYP3wnv8Q4u0cAFw9sC92MTxMnqosEkRlc5k22RGCRocH_E05dmra4VLobOeOTYR78l6rZbV-SStHxwzHK-_im3QWTm3lQRTh47d2c_5fQXO-LjxxPNmKDwP4lnl0rZFjsXChkmUTNRwLTw8LQ2uKzI7G5Ccpz9iAOqSuRnyzcdYUjLLvkNEqPIZ4iFuMH4rdaAmSnAx5NwTuCAzdrKi_rqjb1VFXP7fNsOVR7Uxrie8XyFuDe0PJlXBQ6axiKTRWtEc.ZWU0ZWIzMTktMWRhNi00Mzg0LTllMzYtNzlmMDU3MjRmYTkx"
           VITE_AMAZON_LOCATION_MAP_STYLE: "Standard"
       - name: Deploy to Amplify
         run: |
