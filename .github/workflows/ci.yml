@@ -107,3 +107,24 @@ jobs:
           npm run test:ui
           npm run typecheck
           npm run build
+
+      - name: Chromium browser regression smoke
+        run: |
+          cd frontend
+          npm install --no-save --package-lock=false playwright@1.56.1
+          npx playwright install --with-deps chromium
+          npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/pollution-preview.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
+          node scripts/browser-smoke.mjs
+
+      - name: Preserve browser QA screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pollution-browser-smoke
+          path: |
+            /tmp/pollution-home-desktop.png
+            /tmp/pollution-demo-desktop.png
+            /tmp/pollution-home-mobile.png
+          if-no-files-found: ignore
