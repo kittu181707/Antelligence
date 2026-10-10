@@ -99,6 +99,22 @@ console.log(JSON.stringify({
   note: 'This proves the controlled demo workflow, NOT live route availability in all cities.',
 }, null, 2));
 
+// The six-city overview is a model-coverage probe, not a physical station audit.
+try {
+  const overview = await request('/api/india', { timeout: 29_000 });
+  if (overview.status === 200 && Array.isArray(overview.data.stations)) {
+    const expected = ['Delhi', 'Mumbai', 'Bengaluru', 'Hyderabad', 'Chennai', 'Guntur'];
+    for (const city of expected) {
+      const item = overview.data.stations.find((station) => station.name === city);
+      if (!item) console.warn('MODEL CITY MISSING:', city);
+      else console.log('MODEL CITY', city, ':', item.aqi === null ? 'UNAVAILABLE' : 'US AQI ' + item.aqi,
+        '|', item.source, '|', item.updated);
+    }
+  } else console.warn('Six-city model overview unavailable: HTTP', overview.status);
+} catch (error) {
+  console.warn('Six-city model overview unavailable:', String(error));
+}
+
 const cities = [
   { name: 'Guntur', lat: 16.3067, lon: 80.4365 },
   { name: 'Delhi', lat: 28.6139, lon: 77.2090 },
