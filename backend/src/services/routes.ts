@@ -46,10 +46,24 @@ export async function routesForTrip(input: {
     };
   }
 
+  // Pedestrian routing can be absent in some Indian cities even where Car
+  // works. Bike estimates prefer pedestrian geometry but may use the real
+  // motor-road network only as a clearly disclosed fallback.
+  let bikeUsesCarGeometry = false;
+  if (input.mode === 'bike') delete command.DepartureTime;
   let response: any;
   try {
     response = await (await client()).send(new CalculateRoutesCommand(command));
   } catch (error: any) {
+    if (input.mode === 'bike') {
+      command.TravelMode = 'Car';
+      bikeUsesCarGeometry = true;
+      try {
+        response = await (await client()).send(new CalculateRoutesCommand(command));
+      } catch (fallbackError) {
+        throw userFacingRoutingError(fallbackError, 'bike');
+      }
+    } else {
     // Some providers report departure-time validation in a terse 'Reason'
     // field instead of message. Retry without historical traffic prediction.
     const diagnostic = [error?.message, error?.Reason, error?.reason].filter(Boolean).join(' ');
@@ -62,6 +76,16 @@ export async function routesForTrip(input: {
       }
     } else {
       throw userFacingRoutingError(error, input.mode);
+    }
+    }
+  }
+  if (input.mode === 'bike' && !response.Routes?.length && !bikeUsesCarGeometry) {
+    command.TravelMode = 'Car';
+    bikeUsesCarGeometry = true;
+    try {
+      response = await (await client()).send(new CalculateRoutesCommand(command));
+    } catch (fallbackError) {
+      throw userFacingRoutingError(fallbackError, 'bike');
     }
   }
   const routes: any[] = response.Routes || [];
@@ -89,7 +113,7 @@ export async function routesForTrip(input: {
       // AWS Routes V2 has no Bicycle mode. These coordinates are pedestrian
       // routing geometry, not evidence that each segment is cycling-legal.
       source: bikeEstimate
-        ? 'Amazon Location Routes V2 pedestrian geometry · estimated cycling time (not bicycle-verified)'
+        ? `Amazon Location Routes V2 ${bikeUsesCarGeometry ? 'car-road' : 'pedestrian'} geometry · estimated cycling time (not bicycle-verified)`
         : 'Amazon Location Routes V2',
     };
   });

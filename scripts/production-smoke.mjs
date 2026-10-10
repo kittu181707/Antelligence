@@ -240,7 +240,7 @@ console.log('LIVE GUNTUR THREE CAR LEGS PASS: ' + JSON.stringify({
 
 
 /** Live Bike regression: pedestrian geometry is deliberately labeled as an
- * estimated cycling journey. Do not claim bicycle-legal/safe graph coverage.
+ * estimated cycling journey (pedestrian or fallback motor-road graph). Do not claim bicycle-legal/safe graph coverage.
  * Never accept the disposable smoke plan or inflate community impact. */
 const gunturBike = await request('/api/day/analyze', {
   method: 'POST', authenticated: true, timeout: 29_000,
@@ -258,13 +258,13 @@ check(gunturBike, 'Live Guntur estimated Bike trip with real AWS pedestrian geom
 const bicycle = gunturBike.data.trips?.[0]?.original;
 if (gunturBike.data.workflow?.dataMode !== 'live' ||
     !bicycle || bicycle.mode !== 'bike' ||
-    !bicycle.source?.includes('pedestrian geometry') ||
+    !(/pedestrian geometry|car-road geometry/.test(bicycle.source || '')) ||
     !bicycle.source?.includes('not bicycle-verified') ||
     !bicycle.label?.includes('estimate') ||
     !Number.isFinite(bicycle.travelMinutes) || bicycle.travelMinutes <= 0 ||
     !Number.isFinite(bicycle.modeledExposure) ||
     !Array.isArray(bicycle.geometry) || bicycle.geometry.length < 2) {
-  throw new Error('Bike option failed to return a clearly disclosed live AWS geometry/estimated travel duration');
+  throw new Error('Bike option failed to return transparently sourced real AWS geometry and estimated cycling duration');
 }
 console.log('LIVE GUNTUR ESTIMATED BIKE PASS: ' + JSON.stringify({
   date: testDate, durationMs: gunturBike.durationMs,
