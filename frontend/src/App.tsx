@@ -24,6 +24,7 @@ import { deriveJourneys, getUserId, localDate, readStoredNumber, storeNumber } f
 const blankAgenda = (location?: Coordinates | null): AgendaPayload => ({ date: localDate(), homeLocation: location ? `${location.lat.toFixed(6)}, ${location.lon.toFixed(6)}` : 'Home', events: [] });
 type Step = 'landing'|'import'|'manual'|'travel'|'analysis'|'overview'|'changes'|'final'|'accepted';
 type AgendaMode = 'import' | 'manual';
+const EMPTY_TRIPS: TripAnalysis[] = [];
 
 export default function App() {
   const [step, setStep] = useState<Step>('landing');
@@ -57,7 +58,15 @@ export default function App() {
 
     if (navigator.geolocation) {
       watchId = navigator.geolocation.watchPosition(
-        (pos) => { if (active) setLiveLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude }); },
+        (pos) => {
+          if (!active) return;
+          const next = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+          if (!Number.isFinite(next.lat) || !Number.isFinite(next.lon)) return;
+          setLiveLocation((previous) =>
+            previous && Math.abs(previous.lat - next.lat) < 0.00002 && Math.abs(previous.lon - next.lon) < 0.00002
+              ? previous : next
+          );
+        },
         () => { if (active) setLiveLocation(null); },
         { enableHighAccuracy: false, maximumAge: 10 * 60_000, timeout: 10000 }
       );
@@ -251,7 +260,7 @@ export default function App() {
         <aside className="global-map-col" aria-label="Live route overview">
           <div className="compact-map-card">
             <div className="compact-map-head"><div><span className="welcome-kicker">YOUR ROUTE</span><h2>Live map</h2></div><span className="location-indicator">{liveLocation ? 'Location detected' : 'Enable location for live position'}</span></div>
-            <div className="compact-map-frame"><ErrorBoundary label="Live map" compact><Map trips={analysis?.trips || []} liveLocation={liveLocation} isDemo={isDemo} /></ErrorBoundary></div>
+            <div className="compact-map-frame"><ErrorBoundary label="Live map" compact><Map trips={analysis?.trips ?? EMPTY_TRIPS} liveLocation={liveLocation} isDemo={isDemo} /></ErrorBoundary></div>
             <p className="compact-map-note">{analysis?.trips.length ? `${analysis.trips.length} journey${analysis.trips.length === 1 ? '' : 's'} mapped · Click stops for details` : 'Your live position appears here. Add stops and analyze to plot your day.'}</p>
           </div>
         </aside>
