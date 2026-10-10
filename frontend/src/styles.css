@@ -1006,9 +1006,12 @@ body { overflow-x: hidden; }
 .landing-cta-stack .landing-demo { min-height: 39px; padding: 9px 11px; font-size: 12px; }
 .landing-cta-stack .landing-import { font-size: 12px; padding: 8px 1px; }
 .landing-calendar-hint {
-  grid-column: 1 / -1;
+  grid-column: 2;
+  grid-row: 3;
+  justify-self: center;
+  max-width: 100%;
   font-size: 10px; color: #64748b; line-height: 1.3;
-  text-align: left; padding-left: 3px; margin-top: -2px;
+  text-align: center; padding: 0; margin-top: -2px;
 }
 .landing-hero .landing-description { margin: 8px 0 13px !important; }
 .landing-hero .landing-kicker { margin-bottom: 9px !important; }
@@ -1071,7 +1074,7 @@ body { overflow-x: hidden; }
 @media (max-width: 900px) {
   /* A narrow screen needs scrollable content: do not truncate the main CTA. */
   .global-split-layout.landing-layout { overflow-y: auto; }
-  .landing-layout .landing-calendar-hint { grid-column: 1 / -1; }
+  .landing-layout .landing-calendar-hint { grid-column: 2; }
 }
 
 /* Expand is available from the map surface and by keyboard via this button. */
