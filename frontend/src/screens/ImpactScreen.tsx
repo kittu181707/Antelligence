@@ -6,80 +6,65 @@ import type { AcceptedPlan } from '../types';
 
 export function ImpactScreen() {
   const [personalPlans, setPersonalPlans] = useState<AcceptedPlan[]>([]);
-  const [community, setCommunity] = useState({ totalPlans: 0, totalCo2eSaved: 0 });
+  const [community, setCommunity] = useState<{ totalPlans: number; totalCo2eSaved: number } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
-    async function load() {
+    let active = true;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
       try {
         const userId = await getUserId();
-        const [histRes, commRes] = await Promise.all([
-          api.history(userId),
-          api.communityImpact(),
-        ]);
-        setPersonalPlans(histRes.plans);
-        setCommunity(commRes);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, []);
+        const [history, stats] = await Promise.all([api.history(userId), api.communityImpact()]);
+        if (!Array.isArray(history.plans) || !Number.isFinite(stats.totalPlans) || !Number.isFinite(stats.totalCo2eSaved)) {
+          throw new Error('Incomplete impact data');
+        }
+        if (!active) return;
+        setPersonalPlans(history.plans);
+        setCommunity(stats);
+      } catch {
+        if (active) { setCommunity(null); setError('Impact data is temporarily unavailable; no figures are being estimated or substituted.'); }
+      } finally { if (active) setLoading(false); }
+    };
+    void load();
+    return () => { active = false; };
+  }, [retry]);
 
-  const verifiedPlans = personalPlans.filter((plan) => plan.workflow.dataMode !== 'demo');
-  const myCo2e = verifiedPlans.reduce((sum, p) => {
-    return sum + (p.metrics?.estimatedCo2eChangeKg ? Math.max(0, -p.metrics.estimatedCo2eChangeKg) : 0);
-  }, 0);
+  const realPlans = personalPlans.filter((plan) => plan.workflow?.dataMode === 'live');
+  const demonstrationPlans = personalPlans.filter((plan) => plan.workflow?.dataMode === 'demo');
+  const co2e = realPlans.reduce((sum, plan) => sum + Math.max(0, -(plan.metrics?.estimatedCo2eChangeKg || 0)), 0);
+  const averageImprovement = realPlans.length ? realPlans.reduce((sum, plan) =>
+    sum + Math.max(0, plan.metrics?.exposureReductionPct || 0), 0) / realPlans.length : 0;
 
-  const myExposure = verifiedPlans.reduce((sum, p) => {
-    const orig = p.metrics?.originalExposureIndex || 0;
-    const opt = p.metrics?.optimizedExposureIndex || 0;
-    return sum + Math.max(0, orig - opt);
-  }, 0);
-
-  if (loading) return <div className="screen narrow">Loading impact...</div>;
-
-  return (
-    <div className="screen narrow with-nav">
-      <div className="screen-title">
-        <p className="eyebrow">YOUR IMPACT</p>
-        <h1>Making a difference</h1>
-        <p>Estimated changes in modeled exposure and CO₂e; demonstration plans are excluded from impact.</p>
-      </div>
-
-      <section className="impact-section">
-        <h2><Leaf size={20} color="var(--green)" /> Personal Impact</h2>
-        <div className="metric-grid">
-          <div>
-            <span>Plans Accepted</span>
-            <strong>{personalPlans.length}</strong>
-          </div>
-          <div>
-            <span>Estimated CO₂e Saved</span>
-            <strong>{myCo2e.toFixed(1)} kg</strong>
-          </div>
-          <div>
-            <span>Exposure Reduced (Score)</span>
-            <strong>{myExposure.toFixed(0)}</strong>
-          </div>
-        </div>
-      </section>
-
-      <section className="impact-section" style={{ marginTop: '40px' }}>
-        <h2><Users size={20} color="var(--green)" /> Community Impact</h2>
-        <div className="metric-grid">
-          <div>
-            <span>Total Plans Accepted</span>
-            <strong>{community.totalPlans}</strong>
-          </div>
-          <div>
-            <span>Total Estimated CO₂e Saved</span>
-            <strong>{community.totalCo2eSaved.toFixed(1)} kg</strong>
-          </div>
-        </div>
-      </section>
+  return <div className="screen narrow with-nav">
+    <div className="screen-title">
+      <p className="eyebrow">YOUR IMPACT</p><h1>Estimated impact</h1>
+      <p>Based on accepted plans—not verified trips taken or measured emissions. Controlled demos are excluded from these impact figures.</p>
     </div>
-  );
+    {loading && <p role="status">Loading accepted-plan records…</p>}
+    {error && <div className="error-banner" role="alert">{error} <button type="button" onClick={() => setRetry((value) => value + 1)}>Retry</button></div>}
+    {!loading && !error && community && <>
+      <section className="impact-section">
+        <h2><Leaf size={20} color="var(--green)"/> Personal plans</h2>
+        <div className="metric-grid">
+          <div><span>Recent real plans accepted (up to 20)</span><strong>{realPlans.length}</strong></div>
+          <div><span>Recent plans' estimated CO₂e avoided</span><strong>{co2e.toFixed(1)} kg</strong></div>
+          <div><span>Average modeled exposure improvement</span><strong>{averageImprovement.toFixed(1)}%</strong></div>
+        </div>
+        {demonstrationPlans.length > 0 && <p className="fine-print">{demonstrationPlans.length} saved demo plan(s) omitted from impact.</p>}
+        <p className="fine-print">An accepted recommendation is not proof the journey was completed. The exposure index is relative for each day and is not a measured cumulative pollutant dose.</p>
+      </section>
+      <section className="impact-section" style={{ marginTop: 32 }}>
+        <h2><Users size={20} color="var(--green)"/> Community accepted plans</h2>
+        <div className="metric-grid">
+          <div><span>Real plans accepted</span><strong>{community.totalPlans}</strong></div>
+          <div><span>Estimated CO₂e avoided</span><strong>{community.totalCo2eSaved.toFixed(1)} kg</strong></div>
+        </div>
+        <p className="fine-print">Aggregates reflect accepted real-mode plans stored in DynamoDB—not verified citywide air-quality improvements.</p>
+      </section>
+    </>}
+  </div>;
 }

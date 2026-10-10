@@ -9,14 +9,17 @@ type Station = {
   name: string;
   lat: number;
   lon: number;
-  aqi: number;
-  pm25: number;
-  pm10: number;
+  aqi: number | null;
+  pm25: number | null;
+  pm10: number | null;
+  dataType?: 'model' | 'demo' | 'unavailable';
+  validAt?: string | null;
   source: string;
   updated: string;
 };
 
-function color(aqi: number) {
+function color(aqi: number | null) {
+  if (aqi === null || !Number.isFinite(aqi)) return '#94a3b8';
   if (aqi > 150) return '#b53a37';
   if (aqi > 100) return '#d47c24';
   if (aqi > 50) return '#d4b724';
@@ -50,15 +53,16 @@ export function IndiaScreen() {
   const stationsRef = useRef<Station[]>([]);
   stationsRef.current = stations;
   const [status, setStatus] = useState<'loading'|'live'|'fallback'>('loading');
+  const [coverageError, setCoverageError] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
 
   useEffect(() => {
     let active = true;
     void api.getIndia().then((response) => {
-      if (active) setStations(response.stations);
+      if (active) { setStations(response.stations); setCoverageError(false); }
     }).catch(() => {
-      if (active) setStations([]);
+      if (active) { setStations([]); setCoverageError(true); }
     });
     const timer = window.setInterval(() => {
       void api.getIndia().then((response) => {
@@ -126,7 +130,7 @@ export function IndiaScreen() {
           new maplibregl.Popup({ closeButton: true, maxWidth: '240px' })
             .setLngLat(coordinates)
             .setHTML(
-              `<div style="font:12px system-ui;color:#172019"><strong>${escapeHtml(properties.name)}</strong><br>AQI ${properties.aqi}<br>PM2.5 ${properties.pm25} µg/m³<br>PM10 ${properties.pm10} µg/m³<br><small>${escapeHtml(properties.source)}</small></div>`,
+              `<div style="font:12px system-ui;color:#172019"><strong>${escapeHtml(properties.name)} · City model sample</strong><br>US AQI ${properties.aqi}<br>PM2.5 ${properties.pm25} µg/m³<br>PM10 ${properties.pm10} µg/m³<br><small>${escapeHtml(properties.source)} · not a monitoring station</small></div>`,
             )
             .addTo(map);
         });
@@ -170,22 +174,24 @@ export function IndiaScreen() {
       <div className="screen-title">
         <p className="eyebrow">NATIONAL OVERVIEW</p>
         <h1>India Environmental Intelligence</h1>
-        <p>Modeled US AQI and particulate forecasts across selected Indian cities; not street-level monitors.</p>
+        <p>Six representative city-centre model samples, not CPCB monitoring stations. AQI uses the US EPA scale and may differ from India's official AQI. Forecast grids cannot resolve street-level exposure.</p>
       </div>
 
+      {coverageError && <div role="status" className="error-banner">City environmental providers are unavailable. No readings have been fabricated.</div>}
       <div className="india-live-map">
         <div ref={containerRef} className={`india-map-canvas ${status === 'fallback' ? 'hidden' : ''}`}/>
         {status === 'fallback' && <div className="india-station-grid">
           {stations.map((station) => <article key={station.name}>
             <i style={{ background: color(station.aqi) }}/>
             <strong>{station.name}</strong>
-            <span>AQI {Math.round(station.aqi)}</span>
-            <small>PM2.5 {Math.round(station.pm25)} · PM10 {Math.round(station.pm10)}</small>
+            <span>{station.aqi === null ? 'Unavailable' : `US AQI ${Math.round(station.aqi)}`}</span>
+            <small>{station.pm25 === null || station.pm10 === null ? 'No model data available' : `PM2.5 ${Math.round(station.pm25)} · PM10 ${Math.round(station.pm10)} µg/m³`}</small>
+            <small>{station.source} · {station.validAt ? `model hour ${station.validAt}` : station.updated}</small>
           </article>)}
         </div>}
         {status === 'loading' && <div className="map-loading">Loading Amazon Location map…</div>}
         <span className={`map-live-badge ${status === 'fallback' ? 'fallback' : ''}`}>
-          {status === 'live' ? 'AWS LIVE MAP' : 'LIVE DATA · MAP FALLBACK'}
+          {status === 'live' ? 'AWS MAP · MODELED CITY DATA' : 'CITY SAMPLE VIEW · MODEL DATA'}
         </span>
       </div>
     </div>
@@ -195,7 +201,7 @@ export function IndiaScreen() {
 function stationCollection(stations: Station[]) {
   return {
     type: 'FeatureCollection',
-    features: stations.filter((station) => station.aqi > 0).map((station) => ({
+    features: stations.filter((station) => station.aqi !== null && station.aqi > 0).map((station) => ({
       type: 'Feature',
       properties: {
         name: station.name,

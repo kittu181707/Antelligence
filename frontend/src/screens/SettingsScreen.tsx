@@ -1,12 +1,26 @@
 import { PRODUCT_NAME } from '../config';
 
 export function SettingsScreen({ maxExtra, setMaxExtra }: { maxExtra: number; setMaxExtra: (v: number) => void }) {
-  return <div className="screen narrow with-nav"><div className="screen-title"><p className="eyebrow">SETTINGS</p><h1>Preferences</h1><p>{PRODUCT_NAME} uses these as constraints, not as health advice.</p></div>
-  <section className="preference-card vertical"><div><h2>Optimization Priority</h2><p>What should the AI prioritize when calculating alternatives?</p></div>
-  <div className="segmented">
-    <button className={maxExtra > 0 ? 'selected' : ''} onClick={() => setMaxExtra(10)}>Lowest Exposure</button>
-    <button className={maxExtra === 0 ? 'selected' : ''} onClick={() => setMaxExtra(0)}>Fastest Route</button>
-  </div>
-  </section>
-  <section className="preference-card vertical" style={{marginTop: '16px'}}><div><h2>Default extra-travel budget</h2><p>Maximum additional travel minutes the optimizer may use across the whole day.</p></div><div className="segmented">{[0,5,10,15].map((v) => <button key={v} className={maxExtra === v ? 'selected' : ''} onClick={() => setMaxExtra(v)}>{v ? `+${v}` : '0'} min</button>)}</div></section><div className="info-card" style={{marginTop: '16px'}}><strong>Scientific wording</strong><p>Results are modeled estimates for decision support. They are not medical safety or exact dose claims.</p></div></div>;
+  return <div className="screen narrow with-nav">
+    <div className="screen-title">
+      <p className="eyebrow">SETTINGS</p><h1>Optimization preferences</h1>
+      <p>{PRODUCT_NAME} minimizes modeled environmental exposure while keeping fixed appointments intact.</p>
+    </div>
+    <section className="preference-card vertical">
+      <div>
+        <h2>Extra-travel budget</h2>
+        <p>The maximum additional travel minutes allowed across your whole day. Setting zero forbids slower alternatives; it does <strong>not</strong> switch the optimizer to a shortest-time algorithm.</p>
+      </div>
+      <div className="segmented">
+        {[0, 5, 10, 15].map((value) => <button key={value}
+          type="button" aria-pressed={maxExtra === value} className={maxExtra === value ? 'selected' : ''}
+          onClick={() => setMaxExtra(value)}>{value ? '+' + value : '0'} min</button>)}
+      </div>
+    </section>
+    <section className="info-card" style={{ marginTop: 16 }}>
+      <strong>What changes when you adjust this?</strong>
+      <p>We rerank feasible route and departure alternatives within your selected extra-travel limit. The app does not optimize CO₂e and exposure as though they were the same metric; emissions are reported separately.</p>
+      <p>All results are modeled estimates for decision support, not measurements of your personal dose or proof of improved health.</p>
+    </section>
+  </div>;
 }

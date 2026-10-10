@@ -4,6 +4,7 @@ import type { APIGatewayProxyEvent } from 'aws-lambda';
 import { matchesSession, sessionUserId } from '../auth';
 import { optimizeCandidateSets } from '../core/optimizer';
 import { snapshotFromTomorrowValues } from '../services/environment';
+import { scoreRoute } from '../core/exposure';
 import type { RouteCandidate, TripCandidateSet } from '../types';
 
 const env = { pm25: 100, pm10: 150, aqi: 160, temperature: 30, humidity: 50, windSpeed: 8, uvIndex: 3, rainProbability: 0, source: 'test' };
@@ -99,6 +100,42 @@ assert.equal(tomorrow.humidity, 61);
 assert.equal(tomorrow.windSpeed, 8.4);
 assert.equal(tomorrow.rainProbability, 35);
 assert(tomorrow.source.includes('Tomorrow.io realtime'));
+
+
+const sampleInput = {
+  candidateId: 'validated', routeId: 'validated', tripId: 't-validation',
+  mode: 'walk' as const, label: 'Walking', travelMinutes: 20, distanceKm: 1.5,
+  geometry: [{ lat: 16.3067, lon: 80.4365 }, { lat: 16.31, lon: 80.44 }],
+  source: 'test', departureTime: '09:00', shiftMinutes: 0,
+  environmentSamples: [
+    { position: { lat: 16.3067, lon: 80.4365 }, minutes: 10, environment: env },
+    { position: { lat: 16.31, lon: 80.44 }, minutes: 10, environment: env },
+  ],
+};
+const scored = scoreRoute(sampleInput);
+assert.equal(scored.environmentSamples.length, 2);
+assert(scored.modeledExposure > 0);
+assert.throws(() => scoreRoute({ ...sampleInput, travelMinutes: 0 }), /invalid travel/);
+assert.throws(() => scoreRoute({
+  ...sampleInput, environmentSamples: [{ ...sampleInput.environmentSamples[0], minutes: -1 }],
+}), /invalid environmental/);
+assert.throws(() => scoreRoute({
+  ...sampleInput,
+  environmentSamples: sampleInput.environmentSamples.map((item) => ({ ...item, environment: { ...item.environment, pm25: NaN } })),
+}), /invalid environmental/);
+assert.throws(() => scoreRoute({
+  ...sampleInput, environmentSamples: [{ ...sampleInput.environmentSamples[0], minutes: 2 }],
+}), /do not cover/);
+
+const fasterPolluted = c('faster-but-polluted', 't1', 12, 130);
+const noBenefit = optimizeCandidateSets({
+  userId: 'u1', date: '2026-10-10', events: [], maxExtraMinutes: 0,
+  environmentSource: 'test', routeSource: 'test',
+  sets: [{ journey: sets[0].journey, original: sets[0].original,
+    candidates: [sets[0].original, fasterPolluted] }],
+});
+assert.equal(noBenefit.changes.length, 0, 'a faster but more polluted route must not be mislabeled cleaner');
+assert.equal(noBenefit.metrics.estimatedCo2eChangeKg, 0);
 
 const token = 'ab'.repeat(32);
 const userId = 'user-' + createHash('sha256').update(token).digest('hex').slice(0, 32);

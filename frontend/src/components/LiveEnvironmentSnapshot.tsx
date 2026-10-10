@@ -57,8 +57,8 @@ function browserPosition(): Promise<Coordinates> {
 function ageLabel(updatedAt?: string) {
   if (!updatedAt) return 'time unavailable';
   const age = Date.now() - Date.parse(updatedAt);
-  if (!Number.isFinite(age) || age < 60_000) return 'updated now';
-  return `updated ${Math.max(1, Math.round(age / 60_000))} min ago`;
+  if (!Number.isFinite(age) || age < 60_000) return 'retrieved now';
+  return `retrieved ${Math.max(1, Math.round(age / 60_000))} min ago`;
 }
 
 export function LiveEnvironmentSnapshot({ homeLocation, liveLocation, isDemo, chipMode }: { homeLocation: string; liveLocation?: Coordinates | null; isDemo: boolean; chipMode?: boolean }) {
@@ -153,7 +153,7 @@ export function LiveEnvironmentSnapshot({ homeLocation, liveLocation, isDemo, ch
   const sourceLabel = useMemo(() => {
     if (isDemo) return 'DEMO DATA';
     if (!environment) return 'LIVE FEED';
-    return environment.source.includes('Tomorrow.io') ? 'LIVE · TOMORROW.IO' : 'LIVE · FALLBACK';
+    return environment.source.includes('Tomorrow.io') ? 'PROVIDER · TOMORROW.IO' : 'MODEL · OPEN-METEO';
   }, [environment, isDemo]);
 
   if (!environment) {
@@ -178,12 +178,13 @@ export function LiveEnvironmentSnapshot({ homeLocation, liveLocation, isDemo, ch
 
   if (chipMode) {
     return (
-      <div className="environment-chip-row">
+      <div className="environment-chip-row" title={`${environment.source} · US EPA AQI · ${ageLabel(environment.updatedAt)} · Forecast values are not street-level measurements`}>
         <div className="env-chip"><ThermometerSun size={14}/> <span>{environment.temperature.toFixed(0)}°C</span></div>
-        <div className="env-chip"><Gauge size={14}/> <span>AQI {Math.round(environment.aqi)}</span></div>
+        <div className="env-chip"><Gauge size={14}/> <span>US AQI {Math.round(environment.aqi)}</span></div>
         <div className="env-chip"><Wind size={14}/> <span>PM2.5 {environment.pm25.toFixed(0)}</span></div>
         <div className="env-chip"><Wind size={14}/> <span>PM10 {environment.pm10.toFixed(0)}</span></div>
         <div className="env-chip"><Sun size={14}/> <span>UV {environment.uvIndex.toFixed(1)}</span></div>
+        <div className="env-chip" title={environment.source}><span>{isDemo ? 'DEMO DATA' : `${environment.source.includes('Open-Meteo') ? 'MODEL' : 'PROVIDER'} · ${ageLabel(environment.updatedAt)}`}</span></div>
       </div>
     );
   }
@@ -205,7 +206,7 @@ export function LiveEnvironmentSnapshot({ homeLocation, liveLocation, isDemo, ch
       <div className="snapshot-metric"><CloudRain size={15}/><span className="label">Rain</span><strong>{environment.rainProbability.toFixed(0)}%</strong><small>{environment.windSpeed.toFixed(0)} km/h wind</small></div>
     </div>
     <div className="snapshot-footer">
-      <span>{environment.source}</span>
+      <span>{environment.source} · US EPA AQI, not CPCB station readings{environment.validAt ? ` · valid hour ${environment.validAt}` : ''}</span>
       <span>{busy ? <><RefreshCw className="spin" size={12}/> refreshing</> : ageLabel(environment.updatedAt)}</span>
     </div>
   </section>;

@@ -25,6 +25,23 @@ export function scoreRoute(input: {
   environmentSamples: RouteEnvironmentSample[];
 }): RouteCandidate {
   if (!input.environmentSamples.length) throw new Error('Route has no environmental samples');
+  if (!Number.isFinite(input.travelMinutes) || input.travelMinutes <= 0 ||
+      !Number.isFinite(input.distanceKm) || input.distanceKm < 0) {
+    throw new Error('Route has invalid travel time or distance');
+  }
+  const required = ['pm25', 'pm10', 'aqi', 'temperature', 'humidity', 'windSpeed', 'uvIndex', 'rainProbability'] as const;
+  for (const sample of input.environmentSamples) {
+    if (!Number.isFinite(sample.minutes) || sample.minutes <= 0 ||
+        !Number.isFinite(sample.position.lat) || !Number.isFinite(sample.position.lon) ||
+        required.some((name) => !Number.isFinite(sample.environment[name])) ||
+        sample.environment.pm25 < 0 || sample.environment.pm10 < 0 || sample.environment.aqi < 0) {
+      throw new Error('Route contains invalid environmental measurements');
+    }
+  }
+  const sampledMinutes = input.environmentSamples.reduce((sum, sample) => sum + sample.minutes, 0);
+  if (Math.abs(sampledMinutes - input.travelMinutes) > Math.max(0.1, input.travelMinutes * 0.01)) {
+    throw new Error('Route environmental samples do not cover the whole journey');
+  }
 
   const outside = outdoorMinutes(input.mode, input.travelMinutes);
   const environment = weightedEnvironment(input.environmentSamples);
@@ -74,7 +91,7 @@ function weightedEnvironment(samples: RouteEnvironmentSample[]): EnvironmentSnap
     uvIndex: round(weighted((environment) => environment.uvIndex)),
     rainProbability: round(weighted((environment) => environment.rainProbability)),
     source: unique(samples.map((sample) => sample.environment.source)).join(' + '),
-    updatedAt: samples.map((sample) => sample.environment.updatedAt).filter(Boolean).sort().at(-1),
+    updatedAt: samples.map((sample) => sample.environment.updatedAt).filter(Boolean).sort()[0],
     validAt: samples.map((sample) => sample.environment.validAt).filter(Boolean).sort().at(-1),
   };
 }

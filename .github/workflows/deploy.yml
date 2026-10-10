@@ -54,7 +54,6 @@ jobs:
         env:
           VITE_API_BASE_URL: "https://f5vtqmx8ne.execute-api.us-east-1.amazonaws.com/Prod"
           VITE_AWS_REGION: "us-east-1"
-          VITE_AMAZON_LOCATION_API_KEY: "v1.public.eyJqdGkiOiI1ZDFkNGIyYy03OWU2LTQ2NzktYTJhNC01ZGU0M2IyZTUwYWIifRZPKNApA4lAsj_Ow3ch1Mn0qDJBKEoo8e2C5g9xMBFpujoRMQ4hZ389RcXWYmH_5QnbwDm6XBZHKO8EWkkdYP3wnv8Q4u0cAFw9sC92MTxMnqosEkRlc5k22RGCRocH_E05dmra4VLobOeOTYR78l6rZbV-SStHxwzHK-_im3QWTm3lQRTh47d2c_5fQXO-LjxxPNmKDwP4lnl0rZFjsXChkmUTNRwLTw8LQ2uKzI7G5Ccpz9iAOqSuRnyzcdYUjLLvkNEqPIZ4iFuMH4rdaAmSnAx5NwTuCAzdrKi_rqjb1VFXP7fNsOVR7Uxrie8XyFuDe0PJlXBQ6axiKTRWtEc.ZWU0ZWIzMTktMWRhNi00Mzg0LTllMzYtNzlmMDU3MjRmYTkx"
           VITE_AMAZON_LOCATION_MAP_STYLE: "Standard"
       - name: Deploy to Amplify
         run: |
@@ -64,6 +63,22 @@ jobs:
           DEPLOYMENT_INFO=$(aws amplify create-deployment --app-id d22y9q2ay7ukew --branch-name main)
           JOB_ID=$(echo $DEPLOYMENT_INFO | jq -r .jobId)
           UPLOAD_URL=$(echo $DEPLOYMENT_INFO | jq -r .zipUploadUrl)
-          curl -s -T deploy.zip "$UPLOAD_URL"
+          curl --fail --silent --show-error -T deploy.zip "$UPLOAD_URL"
           aws amplify start-deployment --app-id d22y9q2ay7ukew --branch-name main --job-id $JOB_ID
+          STATUS=""
+          for attempt in $(seq 1 60); do
+            STATUS="$(aws amplify get-job --app-id d22y9q2ay7ukew --branch-name main --job-id "$JOB_ID" --query 'job.summary.status' --output text)"
+            case "$STATUS" in
+              SUCCEED) echo "Amplify deployment completed successfully"; break ;;
+              FAILED|CANCELLED) echo "Amplify deployment failed: $STATUS" >&2; exit 1 ;;
+            esac
+            sleep 10
+          done
+          if [ "$STATUS" != "SUCCEED" ]; then echo "Amplify deployment did not complete in 10 minutes" >&2; exit 1; fi
+
+      - name: Verify real AWS analysis, DynamoDB history and isolated guest sessions
+        timeout-minutes: 4
+        env:
+          SMOKE_API_BASE_URL: "https://f5vtqmx8ne.execute-api.us-east-1.amazonaws.com/Prod"
+        run: node scripts/production-smoke.mjs
 

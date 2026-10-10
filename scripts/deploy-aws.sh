@@ -18,7 +18,7 @@ aws sts get-caller-identity --region "$AWS_REGION" >/dev/null
 echo "==> Building and deploying AWS backend"
 sam validate
 sam build --parallel
-sam deploy   --stack-name "$STACK_NAME"   --region "$AWS_REGION"   --resolve-s3   --capabilities CAPABILITY_IAM   --no-confirm-changeset   --no-fail-on-empty-changeset   --parameter-overrides     DemoMode=false     BedrockModelId="$BEDROCK_MODEL_ID"     TomorrowIoApiKey="$TOMORROW_IO_API_KEY"     MapAllowedReferer="*"     AppTimezoneOffset="$APP_TIMEZONE_OFFSET"
+sam deploy   --stack-name "$STACK_NAME"   --region "$AWS_REGION"   --resolve-s3   --capabilities CAPABILITY_IAM   --no-confirm-changeset   --no-fail-on-empty-changeset   --parameter-overrides     DemoMode=false     BedrockModelId="$BEDROCK_MODEL_ID"     TomorrowIoApiKey="$TOMORROW_IO_API_KEY"     MapAllowedReferer="http://localhost:5173/*"     AppTimezoneOffset="$APP_TIMEZONE_OFFSET"
 
 API_ENDPOINT="$(aws cloudformation describe-stacks   --stack-name "$STACK_NAME"   --region "$AWS_REGION"   --query "Stacks[0].Outputs[?OutputKey=='ApiEndpoint'].OutputValue | [0]"   --output text)"
 
@@ -91,7 +91,7 @@ for _ in {1..90}; do
       for (const key of ['aqi','pm25','pm10','temperature','uvIndex','rainProbability']) {
         if (!Number.isFinite(Number(live[key]))) throw new Error('deployed live environment is missing ' + key);
       }
-      if (!String(live.source || '').includes('realtime')) throw new Error('deployed environment endpoint is not returning a realtime source');
+      if (!/Open-Meteo|Tomorrow\.io/.test(String(live.source || ''))) throw new Error('deployed environment endpoint has no identified model/provider source');
       if (String(live.source || '').includes('Controlled demo')) throw new Error('production environment endpoint returned demo data');
       console.log('live Amazon map configuration and environmental feed verified');
 NODE

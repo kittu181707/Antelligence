@@ -155,7 +155,7 @@ async function loadOpenMeteo(
     windSpeed: requiredNumber(weather.hourly?.wind_speed_10m?.[weatherIndex], 'wind speed', 0),
     uvIndex: requiredNumber(weather.hourly?.uv_index?.[weatherIndex], 'UV index', 0),
     rainProbability: requiredNumber(weather.hourly?.precipitation_probability?.[weatherIndex], 'rain probability', 0),
-    source: current ? 'Open-Meteo realtime fallback environmental data' : 'Open-Meteo live forecast fallback environmental data',
+    source: current ? 'Open-Meteo current-hour model forecast (US EPA AQI, not monitoring-station observations)' : 'Open-Meteo hourly model forecast (US EPA AQI, not monitoring-station observations)',
     updatedAt: new Date().toISOString(),
     validAt,
   };

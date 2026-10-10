@@ -32,6 +32,7 @@ export async function getPlan(planId: string) {
   const result = await doc().send(new GetCommand({
     TableName: table(),
     Key: { pk: `PLAN#${planId}`, sk: 'PLAN' },
+    ConsistentRead: true,
   }));
   return result.Item as { userId?: string; plan?: DayAnalysis } | undefined;
 }
@@ -63,6 +64,7 @@ export async function acceptPlan(userId: string, planId: string) {
       Update: {
         TableName: table(),
         Key: { pk: 'GLOBAL', sk: 'IMPACT' },
+    ConsistentRead: true,
         UpdateExpression: 'ADD totalPlans :one, totalCo2eSaved :co2e',
         ExpressionAttributeValues: { ':one': 1, ':co2e': co2eSaved },
       },
@@ -87,6 +89,7 @@ export async function history(userId: string) {
     ExpressionAttributeValues: { ':pk': `USER#${userId}` },
     ScanIndexForward: false,
     Limit: 20,
+    ConsistentRead: true,
   }));
   return (result.Items || []).map((item) => item.plan);
 }
