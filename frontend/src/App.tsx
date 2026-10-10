@@ -88,7 +88,7 @@ export default function App() {
   });
   useEffect(() => {
     let active = true;
-    if (isDemo || analysis || tab !== 'today' || (step !== 'manual' && step !== 'import' && step !== 'travel')) {
+    if (isDemo || analysis || (tab !== 'today' && tab !== 'map') || (step !== 'manual' && step !== 'import' && step !== 'travel')) {
       setPreviewPoints([]);
       return () => { active = false; };
     }
@@ -285,7 +285,8 @@ export default function App() {
 
   const onNav = (next: NavTab) => {
     setTab(next);
-    if (next === 'today') setStep('landing');
+    // Returning from a map preview must not discard a partially edited day.
+    if (next === 'today' && tab !== 'map') setStep('landing');
     if (next === 'optimize') {
       if (analysis) setStep('final');
       else if (agenda.events.length) continueToTravel();
@@ -322,6 +323,27 @@ export default function App() {
           <ErrorBoundary label="Live conditions" compact><LiveEnvironmentSnapshot homeLocation={agenda.homeLocation} liveLocation={liveLocation} isDemo={isDemo} chipMode={true}/></ErrorBoundary>
         </div>
       </header>
+      {tab === 'map' ? (
+        <main className="fullpage-map-screen" aria-label="Full-page interactive map">
+          <div className="fullpage-map-header">
+            <div>
+              <span className="welcome-kicker">EXPLORE YOUR JOURNEY</span>
+              <h2>Live route map</h2>
+              <p>{analysis?.trips.length
+                ? `${analysis.trips.length} analyzed journey(s). Select numbered stops for details.`
+                : previewPoints.length > 1
+                  ? `${previewPoints.length - 1} planned stop(s). Dashed lines are previews, not road routes.`
+                  : 'Your current location is shown when permission is enabled. Add stops to map a day.'}</p>
+            </div>
+            <button type="button" className="fullpage-map-back" onClick={() => onNav('today')}>Back to Today</button>
+          </div>
+          <div className="fullpage-map-canvas">
+            <ErrorBoundary label="Full map" compact>
+              <Map trips={analysis?.trips ?? EMPTY_TRIPS} liveLocation={liveLocation} isDemo={isDemo} previewPoints={previewPoints}/>
+            </ErrorBoundary>
+          </div>
+        </main>
+      ) : (
       <main className={`main-content global-split-layout ${tab === 'today' && step === 'landing' && !agenda.events.length ? 'landing-layout' : ''}`}>
         <section className="global-panel-col">
           {isDemo && <div className="demo-banner">DEMO MODE · Sample routes and conditions</div>}
@@ -345,6 +367,7 @@ export default function App() {
           </div>
         </aside>
       </main>
+      )}
       <BottomNav active={tab} onChange={onNav}/>
     </div>
   );
