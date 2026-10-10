@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { ArrowLeft, CalendarDays, LocateFixed, Plus, Trash2, Upload } from 'lucide-react';
 import type { AgendaPayload, CalendarEvent, Coordinates } from '../types';
-import { minutesToTime, timeToMinutes, uid } from '../utils';
+import { lastForecastDate, localDate, minutesToTime, timeToMinutes, uid } from '../utils';
 
 const MAX_STOPS = 12;
 function nextEnd(start: string) {
@@ -24,6 +24,12 @@ export function ImportScreen({ agenda, setAgenda, mode, onBack, onContinue, onIc
 }) {
   const uploadRef = useRef<HTMLInputElement>(null);
   const ordered = [...agenda.events].sort((a, b) => a.start.localeCompare(b.start));
+  const today = localDate();
+  const forecastEnd = lastForecastDate();
+  const invalidDate = agenda.date < today || agenda.date > forecastEnd;
+  const dateWarning = agenda.date < today
+    ? 'The selected day has passed in India. Choose today or a later date.'
+    : 'Live environmental forecasts cover today and the next six days. Choose a nearer date.';
   const update = (id: string, patch: Partial<CalendarEvent>) => setAgenda({
     ...agenda, events: agenda.events.map((event) => event.eventId === id ? { ...event, ...patch } : event),
   });
@@ -47,13 +53,14 @@ export function ImportScreen({ agenda, setAgenda, mode, onBack, onContinue, onIc
     <div className="screen-title">
       <span className="welcome-kicker">PERSONALIZED DAILY ROUTES</span>
       <h1>Plan your day</h1>
-      <p>Add your stops in any order — we'll sort them by time and map the route after analysis.</p>
+      <p>Add stops in any order. We place each location on the map as you enter it, then calculate actual road routes after analysis.</p>
     </div>
     <div className="itinerary-section">
       <div className="itinerary-topline">
         <label htmlFor="day-date"><CalendarDays size={16}/> Date</label>
-        <input id="day-date" type="date" value={agenda.date} onChange={(e) => setAgenda({ ...agenda, date: e.target.value })}/>
+        <input id="day-date" type="date" min={today} max={forecastEnd} value={agenda.date} onChange={(e) => setAgenda({ ...agenda, date: e.target.value })}/>
       </div>
+      {invalidDate && <div role="alert" className="editor-warning">{dateWarning} <button type="button" className="secondary" onClick={() => setAgenda({ ...agenda, date: today })}>Use today</button></div>}
       <label htmlFor="origin-input">Start location</label>
       <div className="origin-row">
         <input id="origin-input" value={agenda.homeLocation === 'Home' ? '' : agenda.homeLocation}
@@ -90,7 +97,7 @@ export function ImportScreen({ agenda, setAgenda, mode, onBack, onContinue, onIc
     <button className="dashed itinerary-add" disabled={agenda.events.length >= MAX_STOPS} onClick={add}><Plus size={17}/> Add another stop</button>
     {invalid && ordered.length > 0 && <div className="editor-warning">Complete each stop's name and address, and ensure appointment times don't overlap.</div>}
     {error && <div className="error-banner">{error}</div>}
-    <button className="primary large full itinerary-submit" disabled={busy || !agenda.homeLocation.trim() || agenda.homeLocation === 'Home' || !agenda.events.length || invalid} onClick={onContinue}>
+    <button className="primary large full itinerary-submit" disabled={busy || invalidDate || !agenda.homeLocation.trim() || agenda.homeLocation === 'Home' || !agenda.events.length || invalid} onClick={onContinue}>
       Review journeys
     </button>
   </div>;
