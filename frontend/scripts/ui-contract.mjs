@@ -86,6 +86,15 @@ assert(map.includes('raster-route-preview') && app.includes('previewPoints={prev
 assert(travel.includes('Use Car for all journeys') && travel.includes('Live bus and metro availability'), 'unsupported live transit must have an actionable fallback');
 const styles = read('src/styles.css');
 assert(styles.includes('position: static !important') && styles.includes('.review-actions'), 'planner CTA must not float over form or navigation');
+assert(app.includes('planner-layout') && app.includes('planner-map-review-button') &&
+  app.includes('disabled={busy || !canReviewAgenda(agenda)}'),
+  'planner must move the checked Review action below a map-side card');
+assert(styles.includes('.global-split-layout.planner-layout') &&
+  styles.includes('.planner-layout .itinerary-list') &&
+  styles.includes('overflow-y: auto;') &&
+  styles.includes('.planner-layout .itinerary-editor .itinerary-submit { display: none !important; }'),
+  'desktop planner must use the full-size right map with a scrollable stop list and no duplicate action');
+
 
 assert(app.includes("else if (step === 'travel') content = <TravelScreen"), 'travel confirmation screen must be reachable');
 assert(app.includes('isDemo={isDemo}'), 'demo/live provenance must flow into screens and map');
