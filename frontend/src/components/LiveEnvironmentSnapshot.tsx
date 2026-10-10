@@ -17,6 +17,15 @@ const DEMO: EnvironmentSnapshot = {
   source: 'Controlled demo environmental data',
 };
 
+// Treat the API response as untrusted JSON; an invalid measurement must never crash React.
+const REQUIRED_MEASUREMENTS = ['temperature', 'aqi', 'pm25', 'pm10', 'uvIndex', 'humidity', 'windSpeed', 'rainProbability'] as const;
+export function isEnvironmentSnapshot(input: unknown): input is EnvironmentSnapshot {
+  if (!input || typeof input !== 'object') return false;
+  const item = input as Record<string, unknown>;
+  return REQUIRED_MEASUREMENTS.every((field) => typeof item[field] === 'number' && Number.isFinite(item[field]))
+    && typeof item.source === 'string' && item.source.length > 0;
+}
+
 function aqiLabel(value: number) {
   if (value <= 50) return 'Good';
   if (value <= 100) return 'Moderate';
@@ -58,6 +67,8 @@ export function LiveEnvironmentSnapshot({ homeLocation, liveLocation, isDemo, ch
   const [busy, setBusy] = useState(!isDemo);
   const [error, setError] = useState<string>();
   const [, setClock] = useState(0);
+  // Small GPS movements should not clear data and launch another request every second.
+  const locationKey = liveLocation ? `${liveLocation.lat.toFixed(3)},${liveLocation.lon.toFixed(3)}` : '';
 
   useEffect(() => {
     let active = true;
@@ -73,7 +84,7 @@ export function LiveEnvironmentSnapshot({ homeLocation, liveLocation, isDemo, ch
     const resolveQuery = async () => {
       if (liveLocation !== undefined) {
         if (liveLocation) {
-          return { position: liveLocation, label: 'Current location' } satisfies Query;
+          return { position: { lat: Number(liveLocation.lat.toFixed(3)), lon: Number(liveLocation.lon.toFixed(3)) }, label: 'Current location' } satisfies Query;
         } else if (meaningfulLocation(homeLocation)) {
           return { location: homeLocation.trim(), label: homeLocation.trim() } satisfies Query;
         }
@@ -104,7 +115,7 @@ export function LiveEnvironmentSnapshot({ homeLocation, liveLocation, isDemo, ch
     });
 
     return () => { active = false; };
-  }, [homeLocation, isDemo, liveLocation]);
+  }, [homeLocation, isDemo, locationKey]);
 
   useEffect(() => {
     if (isDemo || !query) return;
@@ -114,6 +125,7 @@ export function LiveEnvironmentSnapshot({ homeLocation, liveLocation, isDemo, ch
       setBusy(true);
       try {
         const next = await api.currentEnvironment({ position: query.position, location: query.location });
+        if (!isEnvironmentSnapshot(next)) throw new Error('Incomplete environmental measurements');
         if (active) {
           setEnvironment(next);
           setError(undefined);

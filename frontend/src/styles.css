@@ -627,3 +627,10 @@ body { overflow-x: hidden; }
 .editor-warning { padding: 10px 13px; color: #92400e; font-size: 12px; background: #fffbeb; border-radius: 10px; }
 .itinerary-submit { min-height: 50px !important; justify-content: center !important; }
 @media(max-width: 600px) { .origin-row { flex-wrap: wrap; } .origin-row button { width: 100%; } .itinerary-stop { gap: 7px; padding: 12px; grid-template-columns: 25px minmax(0,1fr) 32px; } .stop-time-grid { gap: 6px; } }
+
+/* Recover without blanking the entire SPA on a component exception. */
+.ui-error-boundary { padding: 24px; border: 1px solid #fecaca; border-radius: 15px; background: #fff7f7; color: #7f1d1d; }
+.ui-error-boundary.compact { padding: 12px; font-size: 12px; }
+.ui-error-boundary p { margin: 7px 0 12px; line-height: 1.5; font-size: 12px; }
+.ui-error-boundary button { font-size: 12px; }
+.map-unavailable-hint { position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 6; border-radius: 8px; padding: 8px 10px; font-size: 11px; color: #7c2d12; background: rgba(255,247,237,.96); pointer-events: none; }

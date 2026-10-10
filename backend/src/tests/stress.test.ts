@@ -4,6 +4,7 @@ import { parseIcs } from '../core/ics';
 import { isValidTime, timeToMinutes } from '../core/time';
 import { optimizeCandidateSets } from '../core/optimizer';
 import { routesForTrip } from '../services/routes';
+import { geocode } from '../services/geocode';
 import type { RouteCandidate, TripCandidateSet } from '../types';
 
 const env = { pm25: 90, pm10: 130, aqi: 120, temperature: 33, humidity: 45, windSpeed: 7, uvIndex: 7, rainProbability: 10, source: 'stress' };
@@ -118,6 +119,39 @@ async function main() {
     }),
     /Bike routing is unavailable/,
   );
+
+  // The browser can supply GPS coordinates directly: geocoding must not require AWS for these.
+  assert.deepEqual(await geocode('28.613900, 77.209000', false), { lat: 28.6139, lon: 77.209 });
+  await assert.rejects(() => geocode('91.0000, 181.0000', false), /out of range/);
+
+  // Validate the maximum advertised day size and ensure a thirteenth stop is rejected.
+  const twelveEvents = Array.from({ length: 12 }, (_, index) => ({
+    eventId: `stop-${index}`,
+    title: `Stop ${index + 1}`,
+    location: `Location-${index}`,
+    start: `${String(index + 8).padStart(2, '0')}:00`,
+    end: `${String(index + 8).padStart(2, '0')}:30`,
+    fixed: true,
+  }));
+  const twelveJourneys = twelveEvents.map((event, index) => ({
+    tripId: `journey-${index}`,
+    origin: index === 0 ? '28.613900, 77.209000' : twelveEvents[index - 1].location,
+    destination: event.location,
+    departureTime: index === 0 ? '07:30' : twelveEvents[index - 1].end,
+    arriveBy: event.start,
+    mode: 'car' as const,
+  }));
+  const validDay = {
+    userId: 'u1', date: '2026-10-06', homeLocation: '28.613900, 77.209000',
+    maxExtraMinutes: 10, events: twelveEvents, journeys: twelveJourneys,
+  };
+  const prepared = await prepare(validDay);
+  assert.equal(prepared.events.length, 12);
+  assert.equal(prepared.journeys.length, 12);
+  await assert.rejects(() => prepare({
+    ...validDay,
+    events: [...twelveEvents, { ...twelveEvents[11], eventId: 'stop-12', title: 'Extra', location: 'Location-12', start: '20:00', end: '20:30' }],
+  }), /maximum of 12 events/);
 
   // Deterministic differential test: DP output vs exhaustive search on 2,000 diverse small problems.
   let seed = 0x8f42e331;
