@@ -1,4 +1,4 @@
-import { Search, ArrowRight, Calendar, AlertTriangle, ArrowDown, Clock3, Sun, Wind, HelpCircle, Leaf, Users } from 'lucide-react';
+import { Search, ArrowRight, ArrowUpRight, Calendar, CalendarDays, MapPin, Navigation2, CheckCircle2, PlayCircle, AlertTriangle, ArrowDown, Clock3, Sun, Wind, HelpCircle, Leaf, Users } from 'lucide-react';
 import type { AgendaPayload, JourneyInput, DayAnalysis, TripAnalysis, Coordinates } from '../types';
 import { shortTime } from '../utils';
 
@@ -39,7 +39,7 @@ export function TodayScreen({
   const m = analysis?.metrics;
 
   return (
-    <div className="dashboard-container">
+    <div className={`dashboard-container ${!hasAgenda ? 'landing-dashboard' : ''}`}>
 
       {error && <div className="error-banner"><AlertTriangle size={16}/> {error}</div>}
 
@@ -47,15 +47,68 @@ export function TodayScreen({
       <div className="dashboard-middle">
         <div className="journeys-col today-journeys">
           {!hasAgenda ? (
-            <div className="empty-agenda" style={{ padding: '0', border: 'none', background: 'transparent' }}>
-              <h3 style={{ margin: '0 0 16px 0' }}>Plan your route</h3>
-              <p style={{ margin: '0 0 24px 0' }}>Where are you going today?</p>
-              <div className="actions" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-                <button className="primary" onClick={onManual} disabled={busy}>Enter Origin & Destination</button>
-                <button className="secondary" onClick={onDemo} disabled={busy}>Load Demo Route</button>
-                <button className="text-button" onClick={onImport} disabled={busy}><Calendar size={18}/> Import Agenda</button>
+            <>
+              <section className="landing-hero" aria-labelledby="landing-pitch">
+                <div className="landing-hero-main">
+                  <p className="landing-kicker"><span className="landing-kicker-dot" /> THE SMARTER WAY THROUGH YOUR DAY</p>
+                  <h2 id="landing-pitch">Go places.<span>Breathe a little easier.</span></h2>
+                  <p className="landing-description">Your schedule stays yours. Explore routes that account for modeled air quality and outdoor conditions—not just the fastest way there.</p>
+                  <div className="landing-cta-stack">
+                    <button className="primary landing-primary" onClick={onManual} disabled={busy}>
+                      <MapPin size={19} aria-hidden="true"/> <span>Enter Origin &amp; Destination</span> <ArrowUpRight size={18} aria-hidden="true"/>
+                    </button>
+                    <button className="secondary landing-demo" onClick={onDemo} disabled={busy}>
+                      <PlayCircle size={18} aria-hidden="true"/> {busy ? 'Preparing sample route…' : 'Load Demo Route'}
+                    </button>
+                    <button className="text-button landing-import" onClick={onImport} disabled={busy}>
+                      <Calendar size={16} aria-hidden="true"/> Import Agenda <ArrowRight size={15} aria-hidden="true"/>
+                    </button>
+                  </div>
+                </div>
+                <div className="landing-hero-aside" aria-label="Your whole day considered">
+                  <span className="landing-aside-label">NOT JUST THE SHORTEST PATH</span>
+                  <div className="landing-aside-track" aria-hidden="true">
+                    <span className="landing-aside-dot first"/><span className="landing-aside-connector"/><span className="landing-aside-dot middle"/><span className="landing-aside-connector"/><span className="landing-aside-dot last"/>
+                  </div>
+                  <div className="landing-aside-points">
+                    <span>Your schedule</span>
+                    <span>Cleaner alternatives</span>
+                    <span>One practical plan</span>
+                  </div>
+                  <p>Keep appointments fixed. Compare feasible journeys.</p>
+                </div>
+              </section>
+              <section className="landing-method" aria-label="How your environmental planner works">
+                <div className="landing-section-heading">
+                  <div>
+                    <span className="landing-section-kicker">HOW IT WORKS</span>
+                    <h3>A better day, in three steps</h3>
+                  </div>
+                  <span className="landing-section-hint">Plan · Compare · Decide</span>
+                </div>
+                <div className="landing-method-grid">
+                  <article className="landing-method-card">
+                    <div className="landing-method-top"><span className="landing-method-icon"><CalendarDays size={19}/></span><span className="landing-method-number">01</span></div>
+                    <h4>Plan your stops</h4>
+                    <p>Add gym, work, errands and the times you need to be there.</p>
+                  </article>
+                  <article className="landing-method-card">
+                    <div className="landing-method-top"><span className="landing-method-icon"><Navigation2 size={19}/></span><span className="landing-method-number">02</span></div>
+                    <h4>Explore better routes</h4>
+                    <p>Compare feasible journeys using forecast environmental conditions.</p>
+                  </article>
+                  <article className="landing-method-card">
+                    <div className="landing-method-top"><span className="landing-method-icon"><CheckCircle2 size={19}/></span><span className="landing-method-number">03</span></div>
+                    <h4>See the tradeoffs</h4>
+                    <p>Review travel time, modeled exposure and route details.</p>
+                  </article>
+                </div>
+              </section>
+              <div className="landing-provenance">
+                <span><span className="landing-provenance-dot"/> Live routing via Amazon Location and AWS</span>
+                <span>Environmental readings are modeled estimates, not personal exposure measurements.</span>
               </div>
-            </div>
+            </>
           ) : (
           <>
               <h3>Today's journeys</h3>
