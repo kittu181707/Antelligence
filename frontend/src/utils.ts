@@ -1,4 +1,4 @@
-import type { CalendarEvent, JourneyInput, TransportMode } from './types';
+import type { AgendaPayload, CalendarEvent, JourneyInput, TransportMode } from './types';
 
 export const modes: { value: TransportMode; label: string }[] = [
   { value: 'car', label: 'Car' },
@@ -117,4 +117,28 @@ export function deriveJourneys(events: CalendarEvent[], homeLocation: string): J
     });
   }
   return output;
+}
+
+/**
+ * Stable journey identity across edits to the same scheduled event.
+ * Mode and manually selected departure survive edits; newly created stops
+ * receive the derived default instead of borrowing settings from another leg.
+ */
+export function editableJourneys(agenda: AgendaPayload, choices: JourneyInput[]): JourneyInput[] {
+  const stops = [...agenda.events].sort((a, b) => a.start.localeCompare(b.start));
+  const defaults = deriveJourneys(stops, agenda.homeLocation);
+  return defaults.map((journey, index) => {
+    const key = index < stops.length
+      ? `journey-to-${stops[index].eventId}`
+      : `journey-return-${stops[stops.length - 1].eventId}`;
+    const previous = choices.find((candidate) => candidate.tripId === key) ||
+      choices.find((candidate) => candidate.origin === journey.origin &&
+        candidate.destination === journey.destination);
+    return {
+      ...journey,
+      tripId: key,
+      mode: previous?.mode || journey.mode,
+      departureTime: previous?.departureTime || journey.departureTime,
+    };
+  });
 }
