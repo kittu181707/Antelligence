@@ -272,7 +272,8 @@ try {
     await page.getByRole('button', { name: 'Add another stop' }).click();
   }
   assert.equal(await page.locator('.itinerary-stop').count(), 3, 'three scheduled stops must be editable');
-  // Many stops must scroll INSIDE the left editor, leaving map and Review fixed.
+  // All planner content, from heading to final stop, scrolls as ONE left panel.
+  // The right map and its Review action must remain fixed and unobscured.
   await page.setViewportSize({ width: 1280, height: 640 });
   for (let index = 3; index < 12; index++) {
     await page.getByRole('button', { name: 'Add another stop' }).click();
@@ -280,23 +281,46 @@ try {
   assert.equal(await page.locator('.itinerary-stop').count(), 12, 'maximum of twelve stops must remain supported');
   const overflow = await page.evaluate(() => {
     const main = document.querySelector('.planner-layout');
+    const panel = document.querySelector('.planner-layout .global-panel-col');
     const list = document.querySelector('.planner-layout .itinerary-list');
     const review = document.querySelector('.planner-map-review-button');
+    const mapCard = document.querySelector('.planner-layout .compact-map-card');
     const nav = document.querySelector('.bottom-nav');
-    const listCss = list ? getComputedStyle(list) : null;
+    const back = document.querySelector('.planner-layout .itinerary-editor .back');
+    const pos = (element) => element?.getBoundingClientRect().toJSON();
     return {
       outerScroll: main?.scrollHeight, outerHeight: main?.clientHeight,
-      innerScroll: list?.scrollHeight, innerHeight: list?.clientHeight,
-      listOverflowY: listCss?.overflowY,
-      reviewBottom: review?.getBoundingClientRect().bottom,
-      navTop: nav?.getBoundingClientRect().top,
+      panelScroll: panel?.scrollHeight, panelHeight: panel?.clientHeight,
+      panelOverflowY: panel ? getComputedStyle(panel).overflowY : null,
+      listScroll: list?.scrollHeight, listHeight: list?.clientHeight,
+      listOverflowY: list ? getComputedStyle(list).overflowY : null,
+      map: pos(mapCard), review: pos(review), nav: pos(nav), back: pos(back),
     };
   });
   assert(overflow.outerScroll <= overflow.outerHeight + 2 &&
-    overflow.innerScroll > overflow.innerHeight + 20 &&
-    overflow.listOverflowY === 'auto' &&
-    overflow.reviewBottom < overflow.navTop - 5,
-    '12 stops must scroll in left stop list, with right Review always visible: ' + JSON.stringify(overflow));
+    overflow.panelScroll > overflow.panelHeight + 300 &&
+    overflow.panelOverflowY === 'auto' &&
+    overflow.listOverflowY === 'visible' &&
+    overflow.listScroll <= overflow.listHeight + 2 &&
+    overflow.review.bottom < overflow.nav.top - 5,
+    'all 12 stops must use the full LEFT scroll pane; map and Review remain fixed: ' + JSON.stringify(overflow));
+  const scrollState = await page.evaluate(() => {
+    const panel = document.querySelector('.planner-layout .global-panel-col');
+    panel.scrollTop = 360;
+    const pos = (selector) => document.querySelector(selector)?.getBoundingClientRect().toJSON();
+    return {
+      scrollTop: panel.scrollTop,
+      back: pos('.planner-layout .itinerary-editor .back'),
+      map: pos('.planner-layout .compact-map-card'),
+      review: pos('.planner-map-review-button'),
+    };
+  });
+  assert(scrollState.scrollTop >= 200 &&
+    scrollState.back.top < overflow.back.top - 170 &&
+    Math.abs(scrollState.map.top - overflow.map.top) <= 2 &&
+    Math.abs(scrollState.review.top - overflow.review.top) <= 2,
+    'scrolling the LEFT planner must move its heading while map and Review remain stationary: ' + JSON.stringify(scrollState));
+  await page.screenshot({ path: '/tmp/pollution-planner-left-scroll-desktop.png', fullPage: true });
   await page.getByLabel('Remove stop 12').click();
   for (let index = 11; index >= 4; index--) {
     await page.getByLabel('Remove stop ' + index).click();
