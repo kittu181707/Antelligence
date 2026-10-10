@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Maximize2 } from 'lucide-react';
 import { api } from './api';
 import { BottomNav, type NavTab } from './components/BottomNav';
 import { Drawer } from './components/Drawer';
@@ -361,8 +362,10 @@ export default function App() {
         </section>
         <aside className="global-map-col" aria-label="Live route overview">
           <div className="compact-map-card">
-            <div className="compact-map-head"><div><span className="welcome-kicker">YOUR ROUTE</span><h2>Live map</h2></div><span className="location-indicator">{liveLocation ? 'Location detected' : 'Enable location for live position'}</span></div>
-            <div className="compact-map-frame"><ErrorBoundary label="Live map" compact><Map trips={analysis?.trips ?? EMPTY_TRIPS} liveLocation={liveLocation} isDemo={isDemo} previewPoints={previewPoints} /></ErrorBoundary></div>
+            <div className="compact-map-head"><div><span className="welcome-kicker">YOUR ROUTE</span><h2>Live map</h2></div><div className="compact-map-head-actions"><span className="location-indicator">{liveLocation ? 'Location detected' : 'Enable location for live position'}</span><button type="button" className="compact-map-expand" title="Expand map to full page" aria-label="Expand map to full page" onClick={() => onNav('map')}><Maximize2 size={16}/></button></div></div>
+            <div className="compact-map-frame" title="Click map to open full-page view" onClick={(event) => {
+              if (!(event.target as HTMLElement).closest('button, a')) onNav('map');
+            }}><ErrorBoundary label="Live map" compact><Map trips={analysis?.trips ?? EMPTY_TRIPS} liveLocation={liveLocation} isDemo={isDemo} previewPoints={previewPoints} /></ErrorBoundary></div>
             <p className="compact-map-note">{analysis?.trips.length ? `${analysis.trips.length} journey${analysis.trips.length === 1 ? '' : 's'} mapped · Click stops for details` : previewPoints.length > 1 ? `${previewPoints.length - 1} stop(s) placed · Dashed straight-line preview; Analyze for actual roads.` : 'Your live position appears here. Add stops and analyze to plot your day.'}</p>
           </div>
         </aside>
