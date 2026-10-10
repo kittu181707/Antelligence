@@ -32,7 +32,9 @@ export async function routesForTrip(input: {
     MaxAlternatives: 1,
     LegGeometryFormat: 'Simple',
     LegAdditionalFeatures: ['Summary'],
-    DepartureTime: departureIso(input.date, input.departureTime),
+    // AWS rejects historical departure times. For a past appointment use a
+    // current road-network route instead of sending an invalid timestamp.
+    ...(futureDeparture(input.date, input.departureTime) ? { DepartureTime: departureIso(input.date, input.departureTime) } : {}),
   };
 
   if (travelMode === 'Transit') {
@@ -48,16 +50,23 @@ export async function routesForTrip(input: {
   let response: any;
   try {
     response = await (await client()).send(new CalculateRoutesCommand(command));
-  } catch (err: any) {
-    if (err.name === 'ValidationException' && err.message?.includes('Departure time')) {
+  } catch (error: any) {
+    // Some providers report departure-time validation in a terse 'Reason'
+    // field instead of message. Retry without historical traffic prediction.
+    const diagnostic = [error?.message, error?.Reason, error?.reason].filter(Boolean).join(' ');
+    if (error?.name === 'ValidationException' && /departure|time/i.test(diagnostic) && command.DepartureTime) {
       delete command.DepartureTime;
-      response = await (await client()).send(new CalculateRoutesCommand(command));
+      try {
+        response = await (await client()).send(new CalculateRoutesCommand(command));
+      } catch (retryError) {
+        throw userFacingRoutingError(retryError, input.mode);
+      }
     } else {
-      throw err;
+      throw userFacingRoutingError(error, input.mode);
     }
   }
   const routes: any[] = response.Routes || [];
-  if (!routes.length) throw new Error(`Amazon Location returned no ${input.mode} route`);
+  if (!routes.length) throw new Error(`No live ${input.mode} route was found. Try Car or Walk, or use a more specific destination.`);
 
   return routes.slice(0, 2).map((route, index) => {
     const durationSeconds = Number(route.Summary?.Duration);
@@ -80,6 +89,23 @@ export async function routesForTrip(input: {
       source: 'Amazon Location Routes V2',
     };
   });
+}
+
+export function futureDeparture(date: string, time: string, now = Date.now()) {
+  const requested = Date.parse(departureIso(date, time));
+  return Number.isFinite(requested) && requested > now + 120_000;
+}
+
+export function userFacingRoutingError(error: unknown, mode: TransportMode): Error {
+  const name = error instanceof Error ? error.name : 'Unknown';
+  if (name === 'ValidationException' || name === 'RoutesValidationException') {
+    return new Error(mode === 'bus' || mode === 'metro'
+      ? `Live ${mode === 'bus' ? 'bus' : 'metro'} routing is unavailable for this journey. Amazon Location did not return a valid transit route. Choose Car or Walk and try again.`
+      : 'Amazon Location could not validate this route. Check both locations and try Car or Walk.');
+  }
+  if (name === 'ThrottlingException') return new Error('Live routes are busy. Wait a moment and retry.');
+  if (name === 'ResourceNotFoundException') return new Error('Routing is not available for these locations.');
+  return error instanceof Error && error.message ? error : new Error('Route service temporarily unavailable. Please retry.');
 }
 
 function departureIso(date: string, time: string) {
