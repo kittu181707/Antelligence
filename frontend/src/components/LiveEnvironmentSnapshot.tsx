@@ -184,7 +184,7 @@ export function LiveEnvironmentSnapshot({ homeLocation, liveLocation, isDemo, ch
         <div className="env-chip"><Wind size={14}/> <span>PM2.5 {environment.pm25.toFixed(0)}</span></div>
         <div className="env-chip"><Wind size={14}/> <span>PM10 {environment.pm10.toFixed(0)}</span></div>
         <div className="env-chip"><Sun size={14}/> <span>UV {environment.uvIndex.toFixed(1)}</span></div>
-        <div className="env-chip" title={environment.source}><span>{isDemo ? 'DEMO' : environment.source.includes('Open-Meteo') ? 'MODEL' : 'PROVIDER'} · {ageLabel(environment.updatedAt)}</span></div>
+        <div className="env-chip" title={environment.source}><span>{isDemo ? 'DEMO DATA' : `${environment.source.includes('Open-Meteo') ? 'MODEL' : 'PROVIDER'} · ${ageLabel(environment.updatedAt)}`}</span></div>
       </div>
     );
   }
