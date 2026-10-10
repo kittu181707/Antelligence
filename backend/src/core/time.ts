@@ -34,3 +34,20 @@ export function availableMinutes(departure: string, arriveBy?: string): number {
   const end = timeToMinutes(arriveBy);
   return end - start;
 }
+
+/** Live forecast windows match the app's India (UTC+05:30) product region. */
+export function indiaToday(now = new Date()): string {
+  const shifted = new Date(now.getTime() + 330 * 60_000);
+  return shifted.toISOString().slice(0, 10);
+}
+
+export function lastForecastDay(now = new Date()): string {
+  return indiaToday(new Date(now.getTime() + 6 * 86_400_000));
+}
+
+export function checkForecastDate(day: string, now = new Date()): string | null {
+  if (!isValidDate(day)) return 'Choose a valid day.';
+  if (day < indiaToday(now)) return 'This date is in the past in India. Choose today or a future day.';
+  if (day > lastForecastDay(now)) return 'Forecasts are available for the next seven days only. Choose a nearer date.';
+  return null;
+}
