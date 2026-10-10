@@ -1073,3 +1073,18 @@ body { overflow-x: hidden; }
   .global-split-layout.landing-layout { overflow-y: auto; }
   .landing-layout .landing-calendar-hint { grid-column: 1 / -1; }
 }
+
+/* Expand is available from the map surface and by keyboard via this button. */
+.compact-map-head-actions { display: inline-flex; align-items: center; justify-content: flex-end; gap: 7px; min-width: 0; }
+.compact-map-expand {
+  flex: 0 0 auto; display: grid; place-items: center;
+  width: 30px; height: 30px; background: #f0faf4;
+  color: #047857; border: 1px solid #c8e6d4; border-radius: 9px;
+  cursor: pointer;
+}
+.compact-map-expand:hover { background: #d1fae5; }
+.compact-map-expand:focus-visible { outline: 3px solid #10b981; outline-offset: 2px; }
+.compact-map-frame { cursor: zoom-in; }
+.compact-map-frame .raster-map-controls button,
+.compact-map-frame .raster-stop-marker { cursor: pointer; }
+@media (max-width: 480px) { .compact-map-head-actions .location-indicator { max-width: 95px; } }
