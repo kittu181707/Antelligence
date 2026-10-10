@@ -126,6 +126,7 @@ jobs:
           path: |
             /tmp/pollution-planner-empty-desktop.png
             /tmp/pollution-planner-stops-desktop.png
+            /tmp/pollution-planner-left-scroll-desktop.png
             /tmp/pollution-landing-desktop.png
             /tmp/pollution-landing-tablet.png
             /tmp/pollution-landing-mobile.png
