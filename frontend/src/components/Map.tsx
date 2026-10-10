@@ -1,389 +1,282 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import * as maplibregl from 'maplibre-gl';
-import type { GeoJSONSource, LngLatBoundsLike, Map as MapLibreMap } from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
-import { api } from '../api';
-import { AMAZON_LOCATION_API_KEY, AMAZON_LOCATION_MAP_STYLE, AWS_REGION } from '../config';
-import type { Coordinates, RuntimeConfig, TripAnalysis } from '../types';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { LocateFixed, Minus, Plus, ExternalLink } from 'lucide-react';
+import type { CSSProperties, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react';
+import type { Coordinates, TripAnalysis } from '../types';
 import './Map.css';
 
-type FeatureCollection = {
-  type: 'FeatureCollection';
-  features: Array<{
-    type: 'Feature';
-    properties: Record<string, string | number>;
-    geometry: { type: 'LineString' | 'Point'; coordinates: number[] | number[][] };
-  }>;
-};
+/**
+ * A real raster map that uses standard DOM images instead of WebGL.
+ * No async map constructor, API key, map style fetch, GPU dependency or
+ * imperative React-external lifecycle can take down the home screen.
+ */
+const TILE = 256;
+const MIN_ZOOM = 3;
+const MAX_ZOOM = 17;
+const INDIA: Coordinates = { lat: 20.5937, lon: 78.9629 };
+type View = { center: Coordinates; zoom: number };
+type Extent = { width: number; height: number };
+type Stop = { id: string; index: number; label: string; point: Coordinates; details: string };
+type RasterTile = { id: string; x: number; y: number; sourceX: number; sourceY: number; zoom: number };
 
-function lineCollection(trips: TripAnalysis[], which: 'original' | 'recommended'): FeatureCollection {
+function valid(point: Coordinates | undefined | null): point is Coordinates {
+  return !!point && Number.isFinite(point.lat) && Number.isFinite(point.lon)
+    && point.lat >= -85.05 && point.lat <= 85.05 && point.lon >= -180 && point.lon <= 180;
+}
+function clamp(value: number, lo: number, hi: number) {
+  return Math.min(hi, Math.max(lo, value));
+}
+function mercator(point: Coordinates, zoom: number) {
+  const size = TILE * 2 ** zoom;
+  const latitude = clamp(point.lat, -85.05, 85.05) * Math.PI / 180;
   return {
-    type: 'FeatureCollection',
-    features: trips
-      .filter((trip) => trip[which].geometry.length >= 2)
-      .map((trip) => ({
-        type: 'Feature',
-        properties: { tripId: trip.tripId },
-        geometry: {
-          type: 'LineString',
-          coordinates: trip[which].geometry.map((point) => [point.lon, point.lat]),
-        },
-      })),
+    x: (point.lon + 180) / 360 * size,
+    y: (1 - Math.log(Math.tan(latitude) + 1 / Math.cos(latitude)) / Math.PI) / 2 * size,
   };
 }
-
-function sampleCollection(trips: TripAnalysis[]): FeatureCollection {
-  const features: FeatureCollection['features'] = [];
+function fromPixels(x: number, y: number, zoom: number): Coordinates {
+  const size = TILE * 2 ** zoom;
+  const normalized = ((x / size) % 1 + 1) % 1;
+  const latitude = (2 * Math.atan(Math.exp(Math.PI * (1 - 2 * clamp(y / size, .0001, .9999)))) - Math.PI / 2) * 180 / Math.PI;
+  return { lat: latitude, lon: normalized * 360 - 180 };
+}
+function allPoints(trips: TripAnalysis[]): Coordinates[] {
+  const points: Coordinates[] = [];
   for (const trip of trips) {
-    for (const sample of trip.recommended.environmentSamples || []) {
-      features.push({
-        type: 'Feature',
-        properties: { pm25: sample.environment.pm25, tripId: trip.tripId },
-        geometry: { type: 'Point', coordinates: [sample.position.lon, sample.position.lat] },
+    for (const geometry of [trip.original?.geometry, trip.recommended?.geometry]) {
+      if (Array.isArray(geometry)) points.push(...geometry.filter(valid));
+    }
+  }
+  return points;
+}
+function bestView(points: Coordinates[], extent: Extent): View {
+  if (points.length === 0) return { center: INDIA, zoom: 4 };
+  const minLat = Math.min(...points.map((p) => p.lat));
+  const maxLat = Math.max(...points.map((p) => p.lat));
+  const minLon = Math.min(...points.map((p) => p.lon));
+  const maxLon = Math.max(...points.map((p) => p.lon));
+  const center = { lat: (minLat + maxLat) / 2, lon: (minLon + maxLon) / 2 };
+  for (let zoom = MAX_ZOOM; zoom >= MIN_ZOOM; zoom -= 1) {
+    const a = mercator({ lat: minLat, lon: minLon }, zoom);
+    const b = mercator({ lat: maxLat, lon: maxLon }, zoom);
+    if (Math.abs(a.x - b.x) < Math.max(110, extent.width - 84) &&
+        Math.abs(a.y - b.y) < Math.max(90, extent.height - 84)) return { center, zoom };
+  }
+  return { center, zoom: MIN_ZOOM };
+}
+function project(point: Coordinates, view: View, extent: Extent) {
+  const world = TILE * 2 ** view.zoom;
+  const center = mercator(view.center, view.zoom);
+  const p = mercator(point, view.zoom);
+  let dx = p.x - center.x;
+  if (dx > world / 2) dx -= world;
+  if (dx < -world / 2) dx += world;
+  return { x: extent.width / 2 + dx, y: extent.height / 2 + p.y - center.y };
+}
+function routePath(points: Coordinates[] | undefined, view: View, extent: Extent) {
+  if (!Array.isArray(points) || points.length < 2) return '';
+  return points.filter(valid).map((point, i) => {
+    const pos = project(point, view, extent);
+    return (i ? ' L ' : 'M ') + pos.x.toFixed(1) + ' ' + pos.y.toFixed(1);
+  }).join('');
+}
+function tilesInView(view: View, extent: Extent): RasterTile[] {
+  const n = 2 ** view.zoom;
+  const p = mercator(view.center, view.zoom);
+  const left = Math.floor((p.x - extent.width / 2) / TILE);
+  const right = Math.floor((p.x + extent.width / 2) / TILE);
+  const top = Math.floor((p.y - extent.height / 2) / TILE);
+  const bottom = Math.floor((p.y + extent.height / 2) / TILE);
+  const tiles: RasterTile[] = [];
+  for (let y = Math.max(0, top); y <= Math.min(n - 1, bottom); y += 1) {
+    for (let x = left; x <= right; x += 1) {
+      if (tiles.length >= 35) return tiles;
+      const sourceX = ((x % n) + n) % n;
+      tiles.push({
+        id: view.zoom + '-' + x + '-' + y,
+        zoom: view.zoom, sourceX, sourceY: y,
+        x: x * TILE - p.x + extent.width / 2,
+        y: y * TILE - p.y + extent.height / 2,
       });
     }
   }
-  return { type: 'FeatureCollection', features };
+  return tiles;
 }
-
-function endpointCollection(trips: TripAnalysis[]): FeatureCollection {
-  const features: FeatureCollection['features'] = [];
-  trips.forEach((trip, index) => {
-    const geometry = trip.recommended.geometry.length ? trip.recommended.geometry : trip.original.geometry;
-    if (index === 0 && geometry[0]) {
-      features.push({ type: 'Feature', properties: { kind: 'start', tripId: trip.tripId, label: trip.origin, order: 0, time: trip.original.departureTime },
-        geometry: { type: 'Point', coordinates: [geometry[0].lon, geometry[0].lat] } });
+function arrivalTime(departure: string, travelMinutes: number): string {
+  if (!/^\d{2}:\d{2}$/.test(departure)) return 'Scheduled destination';
+  const [hours, minutes] = departure.split(':').map(Number);
+  if (!Number.isFinite(travelMinutes)) return 'Scheduled destination';
+  const total = (hours * 60 + minutes + Math.max(0, travelMinutes)) % 1440;
+  return String(Math.floor(total / 60)).padStart(2, '0') + ':' + String(Math.floor(total % 60)).padStart(2, '0');
+}
+function routeStops(trips: TripAnalysis[]): Stop[] {
+  const stops: Stop[] = [];
+  for (const [i, trip] of trips.entries()) {
+    const points = (Array.isArray(trip.recommended?.geometry) && trip.recommended.geometry.length
+      ? trip.recommended.geometry : trip.original?.geometry || []).filter(valid);
+    if (i === 0 && points[0]) {
+      stops.push({ id: trip.tripId + '-origin', index: 0, point: points[0],
+        label: trip.origin, details: 'Start · ' + trip.original.departureTime });
     }
-    const end = geometry.at(-1);
-    if (end) {
-      features.push({ type: 'Feature', properties: { kind: 'end', tripId: trip.tripId, label: trip.destination, order: index + 1, time: trip.recommended.departureTime },
-        geometry: { type: 'Point', coordinates: [end.lon, end.lat] } });
+    if (points.length) {
+      const candidate = trip.recommended;
+      stops.push({ id: trip.tripId + '-destination', index: i + 1,
+        point: points[points.length - 1], label: trip.destination,
+        details: 'Arrive around ' + arrivalTime(candidate.departureTime, candidate.travelMinutes) +
+          ' · ' + candidate.mode + ' · ' + candidate.travelMinutes + ' min' });
     }
-  });
-  return { type: 'FeatureCollection', features };
-}
-
-function allPoints(trips: TripAnalysis[]) {
-  return trips.flatMap((trip) => [...trip.original.geometry, ...trip.recommended.geometry]);
-}
-
-function styleUrl(config: RuntimeConfig) {
-  const params = new URLSearchParams({
-    key: config.mapApiKey || '',
-    'color-scheme': 'Light',
-    traffic: 'All',
-    'poi-density': 'Sparse',
-    'travel-modes': 'Transit',
-  });
-  return `https://maps.geo.${config.region}.amazonaws.com/v2/styles/${config.mapStyle}/descriptor?${params.toString()}`;
-}
-
-function setSource(map: MapLibreMap, id: string, data: FeatureCollection) {
-  (map.getSource(id) as GeoJSONSource | undefined)?.setData(data as any);
-}
-
-function fitToTrips(map: MapLibreMap, trips: TripAnalysis[], animate: boolean) {
-  const points = allPoints(trips);
-  if (!points.length) return;
-
-  if (points.length === 1) {
-    map.easeTo({ center: [points[0].lon, points[0].lat], zoom: 14, duration: animate ? 350 : 0 });
-    return;
   }
-
-  const bounds = new maplibregl.LngLatBounds();
-  for (const point of points) bounds.extend([point.lon, point.lat]);
-  map.fitBounds(bounds as LngLatBoundsLike, {
-    padding: { top: 54, right: 54, bottom: 54, left: 54 },
-    maxZoom: 15,
-    duration: animate ? 450 : 0,
-  });
+  return stops;
+}
+function fallbackUrl(view: View, extent: Extent, liveLocation?: Coordinates | null) {
+  const center = mercator(view.center, view.zoom);
+  const southwest = fromPixels(center.x - extent.width / 2, center.y + extent.height / 2, view.zoom);
+  const northeast = fromPixels(center.x + extent.width / 2, center.y - extent.height / 2, view.zoom);
+  const bbox = [southwest.lon, southwest.lat, northeast.lon, northeast.lat].map((x) => x.toFixed(5)).join(',');
+  const marker = valid(liveLocation) ? '&marker=' + encodeURIComponent(liveLocation.lat + ',' + liveLocation.lon) : '';
+  return 'https://www.openstreetmap.org/export/embed.html?bbox=' + encodeURIComponent(bbox) + '&layer=mapnik' + marker;
 }
 
-function installLayers(map: MapLibreMap, trips: TripAnalysis[]) {
-  map.addSource('current-routes', { type: 'geojson', data: lineCollection(trips, 'original') as any });
-  map.addSource('recommended-routes', { type: 'geojson', data: lineCollection(trips, 'recommended') as any });
-  map.addSource('pollution-samples', { type: 'geojson', data: sampleCollection(trips) as any });
-  map.addSource('route-endpoints', { type: 'geojson', data: endpointCollection(trips) as any });
-
-  map.addLayer({
-    id: 'current-routes-line',
-    type: 'line',
-    source: 'current-routes',
-    paint: { 'line-color': '#7f8782', 'line-width': 4, 'line-opacity': .68 },
-    layout: { 'line-cap': 'round', 'line-join': 'round' },
-  });
-
-  map.addLayer({
-    id: 'recommended-routes-line',
-    type: 'line',
-    source: 'recommended-routes',
-    paint: { 'line-color': '#0f8a57', 'line-width': 6, 'line-opacity': .96 },
-    layout: { 'line-cap': 'round', 'line-join': 'round' },
-  });
-
-  map.addLayer({
-    id: 'pollution-samples-layer',
-    type: 'circle',
-    source: 'pollution-samples',
-    paint: {
-      'circle-radius': 6,
-      'circle-color': ['step', ['get', 'pm25'], '#0f8a57', 60, '#d6a620', 120, '#dc7628', 180, '#b83b38'] as any,
-      'circle-opacity': .82,
-      'circle-stroke-color': '#ffffff',
-      'circle-stroke-width': 1.5,
-    },
-  });
-
-  map.addLayer({
-    id: 'route-endpoints-layer',
-    type: 'circle',
-    source: 'route-endpoints',
-    paint: {
-      'circle-radius': 6,
-      'circle-color': ['case', ['==', ['get', 'kind'], 'end'], '#0f8a57', '#202823'] as any,
-      'circle-stroke-color': '#ffffff',
-      'circle-stroke-width': 2,
-    },
-  });
+function TileImage({ tile, onLoaded }: { tile: RasterTile; onLoaded: () => void }) {
+  const [provider, setProvider] = useState(0);
+  const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  const uri = provider === 0
+    ? 'https://tile.openstreetmap.org/' + tile.zoom + '/' + tile.sourceX + '/' + tile.sourceY + '.png'
+    : 'https://a.tile.openstreetmap.fr/hot/' + tile.zoom + '/' + tile.sourceX + '/' + tile.sourceY + '.png';
+  const style: CSSProperties = { position: 'absolute', left: tile.x, top: tile.y,
+    width: TILE, height: TILE, display: loaded ? 'block' : 'none', pointerEvents: 'none' };
+  return <img draggable={false} className="raster-tile" src={uri} alt="" decoding="async" style={style}
+    onLoad={() => { setLoaded(true); onLoaded(); }}
+    onError={() => { if (provider === 0) { setProvider(1); setLoaded(false); } else setFailed(true); }}/>;
 }
 
-// A keyless real basemap prevents blank screens when runtime map credentials are absent.
-const OPEN_MAP_STYLE = {
-  version: 8,
-  sources: { 'openstreetmap': {
-    type: 'raster',
-    tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-    tileSize: 256,
-    attribution: '© OpenStreetMap contributors',
-  } },
-  layers: [{ id: 'openstreetmap', type: 'raster', source: 'openstreetmap' }],
-};
-
-async function runtimeConfig(): Promise<RuntimeConfig> {
-  if (AMAZON_LOCATION_API_KEY) {
-    return {
-      region: AWS_REGION || 'us-east-1',
-      mapStyle: AMAZON_LOCATION_MAP_STYLE,
-      mapApiKey: AMAZON_LOCATION_API_KEY,
-      source: 'build-time Amazon Location configuration',
-    };
-  }
-  // Missing backend map config must never prevent the basemap from rendering.
-  return api.runtimeConfig().catch(() => ({
-    region: AWS_REGION || 'us-east-1', mapStyle: AMAZON_LOCATION_MAP_STYLE,
-    mapApiKey: null, source: 'OpenStreetMap tiles',
-  }));
-}
-
-export function Map({ trips, liveLocation, isDemo = false }: { trips: TripAnalysis[]; liveLocation?: Coordinates | null; isDemo?: boolean }) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<MapLibreMap | null>(null);
-  const markerRef = useRef<maplibregl.Marker | null>(null);
-  const tripsRef = useRef(trips);
-  const locationRef = useRef(liveLocation);
-  const [status, setStatus] = useState<'loading' | 'live' | 'fallback'>('loading');
-  const [basemap, setBasemap] = useState('OpenStreetMap');
-  const [tileWarning, setTileWarning] = useState(false);
-  const stableTrips = trips;
-  tripsRef.current = trips;
-  locationRef.current = liveLocation;
+export function Map({ trips, liveLocation, isDemo = false }: {
+  trips: TripAnalysis[]; liveLocation?: Coordinates | null; isDemo?: boolean;
+}) {
+  const container = useRef<HTMLDivElement>(null);
+  const pointer = useRef<{ x: number; y: number; original: View } | null>(null);
+  const [extent, setExtent] = useState<Extent>({ width: 350, height: 275 });
+  const [view, setView] = useState<View>(() => ({ center: valid(liveLocation) ? liveLocation : INDIA, zoom: valid(liveLocation) ? 12 : 4 }));
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [hasTile, setHasTile] = useState(false);
+  const [mapNote, setMapNote] = useState('');
+  const points = useMemo(() => allPoints(trips), [trips]);
+  const stops = useMemo(() => routeStops(trips), [trips]);
+  const mapTiles = useMemo(() => tilesInView(view, extent), [view, extent]);
 
   useEffect(() => {
-    let active = true;
-    let resizeObserver: ResizeObserver | undefined;
-    let initialLoadTimer: number | undefined;
-    void runtimeConfig().then((config) => {
-      if (!active || !containerRef.current) return;
-      const first = allPoints(tripsRef.current)[0];
-      let usePublicStyle = !config.mapApiKey;
-      let errorCount = 0;
-      const map = new maplibregl.Map({
-        container: containerRef.current,
-        style: (usePublicStyle ? OPEN_MAP_STYLE : styleUrl(config)) as any,
-        center: first ? [first.lon, first.lat] : locationRef.current ? [locationRef.current.lon, locationRef.current.lat] : [78.9629, 20.5937],
-        zoom: first ? 12 : locationRef.current ? 13 : 4,
-        attributionControl: { compact: true },
-        validateStyle: false,
-        cooperativeGestures: false,
-        pitchWithRotate: false,
-      });
-      mapRef.current = map;
-      // The right-side card can resize independently of the viewport. A canvas that
-      // retains its previous dimensions looks blank despite loaded map resources.
-      if (typeof ResizeObserver !== 'undefined') {
-        resizeObserver = new ResizeObserver(() => {
-          if (active && mapRef.current === map) map.resize();
-        });
-        resizeObserver.observe(containerRef.current);
+    const node = container.current;
+    if (!node) return;
+    const refresh = () => {
+      const box = node.getBoundingClientRect();
+      if (box.width > 0 && box.height > 0) {
+        setExtent((previous) => previous.width === Math.round(box.width) && previous.height === Math.round(box.height)
+          ? previous : { width: Math.round(box.width), height: Math.round(box.height) });
       }
-      initialLoadTimer = window.setTimeout(() => {
-        if (!active || mapRef.current !== map) return;
-        if (!map.getSource('route-endpoints')) {
-          if (!usePublicStyle) {
-            usePublicStyle = true;
-            map.setStyle(OPEN_MAP_STYLE as any);
-          } else {
-            setStatus('fallback');
-          }
-        }
-      }, 12_000);
-      map.addControl(new maplibregl.NavigationControl({ showCompass: false, visualizePitch: false }), 'top-right');
-      const displayLocation = () => {
-        const position = locationRef.current;
-        if (!position) return;
-        if (!markerRef.current) {
-          markerRef.current = new maplibregl.Marker({ color: '#059669' }).addTo(map);
-          markerRef.current.getElement().setAttribute('title', 'Your live location');
-        }
-        markerRef.current.setLngLat([position.lon, position.lat]);
-      };
-      map.on('style.load', () => {
-        if (!active) return;
-        try {
-          if (!map.getSource('current-routes')) installLayers(map, tripsRef.current);
-        } catch (cause) {
-          console.error('Failed to install route layers:', cause);
-          setStatus('fallback');
-          return;
-        }
-        if (initialLoadTimer !== undefined) window.clearTimeout(initialLoadTimer);
-        displayLocation();
-        if (tripsRef.current.length) fitToTrips(map, tripsRef.current, false);
-        else if (locationRef.current) map.jumpTo({ center: [locationRef.current.lon, locationRef.current.lat], zoom: 13 });
-        setBasemap(usePublicStyle ? 'OpenStreetMap' : 'Amazon Location');
-        setStatus('live');
-        requestAnimationFrame(() => { if (active) map.resize(); });
-      });
-      map.on('click', 'route-endpoints-layer', (event) => {
-        const feature = event.features?.[0];
-        if (!feature?.geometry || feature.geometry.type !== 'Point') return;
-        const point = feature.geometry.coordinates;
-        const info = feature.properties || {};
-        new maplibregl.Popup({ offset: 14, closeButton: true })
-          .setLngLat([point[0], point[1]])
-          .setText(`Stop ${info.order ?? ''}: ${info.label || 'Location'} · ${info.kind === 'start' ? 'Depart' : 'Arrive'} near ${info.time || 'scheduled time'}`)
-          .addTo(map);
-      });
-      map.on('mouseenter', 'route-endpoints-layer', () => { map.getCanvas().style.cursor = 'pointer'; });
-      map.on('mouseleave', 'route-endpoints-layer', () => { map.getCanvas().style.cursor = ''; });
-      map.on('error', (event) => {
-        if (!active) return;
-        const details = String(event.error?.message || event.error || '');
-        console.warn('Map resource error:', details);
-        if (!usePublicStyle) {
-          usePublicStyle = true;
-          setBasemap('OpenStreetMap');
-          try { map.setStyle(OPEN_MAP_STYLE as any); }
-          catch (cause) { console.error('Map style fallback failed:', cause); setStatus('fallback'); }
-        } else {
-          // Raster tile failures are often transient. Never hide an already-created
-          // canvas simply because isStyleLoaded() returns false mid-tile-request.
-          errorCount += 1;
-          if (errorCount >= 4) setTileWarning(true);
-        }
-      });
-      const canvas = map.getCanvas();
-      canvas.addEventListener('webglcontextlost', () => {
-        if (active) setStatus('fallback');
-      });
-      canvas.addEventListener('webglcontextrestored', () => {
-        if (active) { setTileWarning(false); setStatus('live'); map.resize(); }
-      });
-    }).catch(() => { if (active) setStatus('fallback'); });
-    return () => {
-      active = false;
-      if (initialLoadTimer !== undefined) window.clearTimeout(initialLoadTimer);
-      resizeObserver?.disconnect();
-      markerRef.current?.remove(); markerRef.current = null;
-      mapRef.current?.remove(); mapRef.current = null;
     };
+    refresh();
+    if (!('ResizeObserver' in window)) {
+      window.addEventListener('resize', refresh);
+      return () => window.removeEventListener('resize', refresh);
+    }
+    const observer = new ResizeObserver(refresh);
+    observer.observe(node);
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map || status !== 'live') return;
-    setSource(map, 'current-routes', lineCollection(trips, 'original'));
-    setSource(map, 'recommended-routes', lineCollection(trips, 'recommended'));
-    setSource(map, 'pollution-samples', sampleCollection(trips));
-    setSource(map, 'route-endpoints', endpointCollection(trips));
-    if (trips.length) fitToTrips(map, trips, true);
-  }, [stableTrips, status]);
+    if (points.length) setView(bestView(points, extent));
+  }, [points, extent.width, extent.height]);
 
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !liveLocation || status !== 'live') return;
-    if (!markerRef.current) markerRef.current = new maplibregl.Marker({ color: '#059669' }).addTo(map);
-    markerRef.current.setLngLat([liveLocation.lon, liveLocation.lat]);
-    if (!trips.length) map.easeTo({ center: [liveLocation.lon, liveLocation.lat], zoom: 13, duration: 350 });
-  }, [liveLocation?.lat, liveLocation?.lon, status, trips.length]);
+    if (points.length === 0 && valid(liveLocation)) {
+      setView((old) => old.center.lat === liveLocation.lat && old.center.lon === liveLocation.lon
+        ? old : { center: liveLocation, zoom: old.zoom < 8 ? 12 : old.zoom });
+    }
+  }, [liveLocation?.lat, liveLocation?.lon, points.length]);
 
-  return <div className="aws-map-shell">
-    <div ref={containerRef} className={`aws-live-map ${status === 'fallback' ? 'hidden' : ''}`} aria-label="Interactive live map with daily stops"/>
-    {status === 'fallback' && <MapFallback trips={trips} liveLocation={liveLocation}/>}
-    {status === 'loading' && <div className="map-loading">Loading interactive map…</div>}
-    {tileWarning && status === 'live' && <div role="status" className="map-unavailable-hint">Some map tiles could not load. Check the network and zoom to retry.</div>}
-    <div className={`map-live-badge ${status === 'fallback' ? 'fallback' : ''}`}>
-      {status === 'live' ? (isDemo ? `${basemap} · DEMO` : basemap) : status === 'loading' ? 'LOADING MAP' : 'MAP UNAVAILABLE'}
+  const tileLoaded = useCallback(() => setHasTile(true), []);
+  const zoomTo = (nextZoom: number) => {
+    setView((previous) => ({ ...previous, zoom: clamp(nextZoom, MIN_ZOOM, MAX_ZOOM) }));
+    setHasTile(false);
+  };
+  const locate = () => {
+    if (valid(liveLocation)) {
+      setView({ center: liveLocation, zoom: 13 });
+      setMapNote('');
+      return;
+    }
+    if (!navigator.geolocation) { setMapNote('Location is not supported by this browser.'); return; }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const coords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+        if (valid(coords)) { setView({ center: coords, zoom: 13 }); setMapNote(''); }
+      },
+      () => setMapNote('Allow location access in your browser or enter a starting address.'),
+      { timeout: 7000, maximumAge: 5 * 60_000 },
+    );
+  };
+  const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if ((event.target as HTMLElement).closest('button')) return;
+    pointer.current = { x: event.clientX, y: event.clientY, original: view };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!pointer.current) return;
+    const drag = pointer.current;
+    const p = mercator(drag.original.center, drag.original.zoom);
+    setView({ center: fromPixels(p.x - (event.clientX - drag.x), p.y - (event.clientY - drag.y), drag.original.zoom), zoom: drag.original.zoom });
+  };
+  const onPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+    pointer.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  };
+  const onWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    zoomTo(view.zoom + (event.deltaY < 0 ? 1 : -1));
+  };
+  const selected = stops.find((stop) => stop.id === selectedId);
+  return <div className="raster-map" ref={container} aria-label="Interactive route map" data-map-engine="dom-raster" data-map-ready={hasTile ? 'true' : 'fallback'}>
+    <div className="raster-map-viewport" onPointerDown={onPointerDown} onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp} onPointerCancel={onPointerUp} onWheel={onWheel}>
+      <iframe title="OpenStreetMap basemap fallback" className="raster-basemap-frame" src={fallbackUrl(view, extent, liveLocation)}
+        loading="eager" referrerPolicy="strict-origin-when-cross-origin" tabIndex={-1} aria-hidden="true"/>
+      {mapTiles.map((tile) => <TileImage key={tile.id} tile={tile} onLoaded={tileLoaded}/>)}
+      <svg className="raster-route-overlay" width={extent.width} height={extent.height} viewBox={'0 0 ' + extent.width + ' ' + extent.height} aria-hidden="true">
+        {trips.map((trip) => <g key={trip.tripId}>
+          <path d={routePath(trip.original?.geometry, view, extent)} className="raster-route-original"/>
+          <path d={routePath(trip.recommended?.geometry, view, extent)} className="raster-route-optimized"/>
+        </g>)}
+      </svg>
+      {valid(liveLocation) && (() => {
+        const pos = project(liveLocation, view, extent);
+        return <span className="raster-you" style={{ left: pos.x, top: pos.y }} title="Your live location" aria-label="Your live location"/>;
+      })()}
+      {stops.map((stop) => {
+        const pos = project(stop.point, view, extent);
+        if (pos.x < -20 || pos.x > extent.width + 20 || pos.y < -20 || pos.y > extent.height + 20) return null;
+        return <button type="button" key={stop.id} className="raster-stop-marker"
+          aria-label={'Stop ' + stop.index + ': ' + stop.label} title={stop.label}
+          style={{ left: pos.x, top: pos.y }} onClick={() => setSelectedId(stop.id)}>{stop.index || 'S'}</button>;
+      })}
     </div>
+    <div className="raster-map-controls">
+      <button type="button" aria-label="Zoom in" onClick={() => zoomTo(view.zoom + 1)}><Plus size={16}/></button>
+      <button type="button" aria-label="Zoom out" onClick={() => zoomTo(view.zoom - 1)}><Minus size={16}/></button>
+      <button type="button" aria-label="Find my location" onClick={locate}><LocateFixed size={16}/></button>
+    </div>
+    <div className="raster-map-badge">{isDemo ? 'Demo route · ' : ''}Live map</div>
+    {selected && <div className="raster-stop-detail" role="status">
+      <button type="button" aria-label="Close stop details" onClick={() => setSelectedId(null)}>×</button>
+      <strong>{selected.index === 0 ? 'Start' : 'Stop ' + selected.index} · {selected.label}</strong>
+      <span>{selected.details}</span>
+    </div>}
+    {mapNote && <p className="raster-map-note" role="status">{mapNote}</p>}
     {trips.length > 0 && <div className="map-route-legend">
       <span><i className="map-line current"/>Original</span>
       <span><i className="map-line recommended"/>Optimized</span>
-      <span><i className="map-dot"/>PM2.5</span>
     </div>}
+    <a className="raster-attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap <ExternalLink size={10}/></a>
   </div>;
-}
-
-function MapFallback({ trips, liveLocation }: { trips: TripAnalysis[]; liveLocation?: Coordinates | null }) {
-  const points = allPoints(trips);
-  const project = useMemo(() => projector(points), [trips]);
-  // An iframe map still works when the user's GPU blocks WebGL initialization.
-  if (!points.length) {
-    const lat = liveLocation?.lat ?? 20.5937;
-    const lon = liveLocation?.lon ?? 78.9629;
-    const span = liveLocation ? 0.08 : 10;
-    const bbox = [lon - span, lat - span, lon + span, lat + span].join(',');
-    const url = `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik${liveLocation ? `&marker=${encodeURIComponent(`${lat},${lon}`)}` : ''}`;
-    return <div className="map-no-webgl">
-      <iframe src={url} title="OpenStreetMap fallback when WebGL is not available" loading="lazy" referrerPolicy="strict-origin-when-cross-origin"/>
-      <span className="map-fallback-label">Standard map mode · WebGL unavailable</span>
-    </div>;
-  }
-  return <svg className="map-fallback" viewBox="0 0 720 520" role="img" aria-label="Verified route geometry fallback">
-    <defs>
-      <pattern id="fallback-grid" width="38" height="38" patternUnits="userSpaceOnUse">
-        <path d="M38 0H0V38" fill="none" stroke="currentColor" strokeOpacity=".07"/>
-      </pattern>
-    </defs>
-    <rect width="720" height="520" fill="url(#fallback-grid)"/>
-    {trips.map((trip) => <g key={trip.tripId}>
-      <path d={svgPath(trip.original.geometry, project)} className="fallback-route current"/>
-      <path d={svgPath(trip.recommended.geometry, project)} className="fallback-route recommended"/>
-      {trip.recommended.environmentSamples.map((sample, index) => {
-        const point = project(sample.position);
-        return <circle key={index} cx={point.x} cy={point.y} r="7" className="fallback-sample"/>;
-      })}
-    </g>)}
-  </svg>;
-}
-
-function projector(points: Coordinates[]) {
-  if (!points.length) return (_point: Coordinates) => ({ x: 70, y: 450 });
-  const lons = points.map((point) => point.lon);
-  const lats = points.map((point) => point.lat);
-  const minLon = Math.min(...lons), maxLon = Math.max(...lons);
-  const minLat = Math.min(...lats), maxLat = Math.max(...lats);
-  const dx = maxLon - minLon || 1;
-  const dy = maxLat - minLat || 1;
-  return (point: Coordinates) => ({
-    x: 55 + ((point.lon - minLon) / dx) * 610,
-    y: 465 - ((point.lat - minLat) / dy) * 410,
-  });
-}
-
-function svgPath(points: Coordinates[], project: (point: Coordinates) => { x: number; y: number }) {
-  return points.map((point, index) => {
-    const p = project(point);
-    return `${index ? 'L' : 'M'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`;
-  }).join(' ');
 }
