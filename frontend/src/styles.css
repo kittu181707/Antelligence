@@ -758,3 +758,199 @@ body { overflow-x: hidden; }
   .stop-time-grid { gap: 7px; }
   .itinerary-editor input[type=time] { padding: 8px 4px; font-size: 13px; }
 }
+
+
+/* First-impression redesign: clear value proposition with a wider (not taller)
+   live map. Only the initial landing page uses this expanded grid. */
+@media (min-width: 1051px) {
+  .global-split-layout.landing-layout {
+    grid-template-columns: minmax(0, 1fr) clamp(420px, 36vw, 490px);
+    gap: clamp(18px, 2.2vw, 32px);
+  }
+}
+@media (min-width: 901px) and (max-width: 1050px) {
+  .global-split-layout.landing-layout {
+    grid-template-columns: minmax(0, 1fr) clamp(345px, 39vw, 410px);
+    gap: 18px;
+  }
+}
+.landing-layout .global-panel-col,
+.landing-layout .global-map-col { min-width: 0; }
+.landing-layout .compact-map-frame { height: 275px; min-height: 275px; }
+.landing-layout .compact-map-card { box-shadow: 0 12px 28px rgba(19, 55, 37, .07); border-color: #e0e9e4; }
+.landing-layout .compact-map-head { margin-bottom: 12px; }
+.landing-layout .compact-map-note { padding: 1px 2px; }
+.landing-layout .landing-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  padding: 0 0 130px;
+  overflow: visible;
+}
+.landing-dashboard .dashboard-middle { display: block; min-height: 0; }
+.landing-dashboard .today-journeys { width: 100%; min-width: 0; }
+.landing-hero {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: minmax(0,1fr) 167px;
+  align-items: stretch;
+  gap: clamp(16px, 2.5vw, 27px);
+  min-height: 304px;
+  width: 100%;
+  padding: clamp(20px, 2.4vw, 30px);
+  border-radius: 20px;
+  border: 1px solid #d7e9df;
+  background: linear-gradient(118deg, #edf9f2 0%, #f9fdfb 57%, #f2f7fa 100%);
+  overflow: hidden;
+}
+.landing-hero::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  width: 260px;
+  height: 260px;
+  right: -100px;
+  top: -115px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(16,185,129,.13), transparent 72%);
+  pointer-events: none;
+}
+.landing-hero-main { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
+.landing-kicker {
+  display: flex; align-items: center; gap: 8px;
+  margin: 0 0 12px !important;
+  font-size: 10px; font-weight: 750; letter-spacing: .085em;
+  color: #047857; line-height: 1.4;
+}
+.landing-kicker-dot, .landing-provenance-dot {
+  display: inline-block; flex: 0 0 auto; width: 7px; height: 7px;
+  border-radius: 50%; background: #10b981; box-shadow: 0 0 0 3px #d1fae5;
+}
+.landing-hero h2 {
+  margin: 0;
+  max-width: 500px;
+  font-size: clamp(29px, 2.75vw, 39px);
+  line-height: 1.09;
+  letter-spacing: -.048em;
+  font-weight: 780;
+  color: #0f2331;
+}
+.landing-hero h2 > span { display: block; margin-top: 3px; color: #047857; }
+.landing-description {
+  max-width: 460px;
+  margin: 12px 0 17px !important;
+  color: #4a625e; font-size: 13px; line-height: 1.62;
+}
+.landing-cta-stack {
+  display: grid;
+  width: min(100%, 350px);
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  align-items: center;
+}
+.landing-cta-stack .landing-primary,
+.landing-cta-stack .landing-demo {
+  margin: 0; display: flex; align-items: center; justify-content: center;
+  gap: 9px; border-radius: 10px; font-size: 12px; font-weight: 650;
+  box-shadow: none;
+}
+.landing-cta-stack .landing-primary {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+}
+.landing-cta-stack .landing-primary svg:last-child { margin-left: auto; }
+.landing-cta-stack .landing-primary svg:first-child { flex: 0 0 auto; }
+.landing-cta-stack .landing-demo {
+  grid-column: 1;
+  width: 100%;
+  min-height: 37px;
+  padding: 8px 10px;
+  border: 1px solid #d8e4dd;
+  background: #fff;
+  white-space: nowrap;
+}
+.landing-cta-stack .landing-import {
+  grid-column: 2; justify-content: center;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 2px; min-height: 37px; font-size: 12px; font-weight: 650;
+  color: #047857; white-space: nowrap;
+}
+.landing-cta-stack button:focus-visible { outline: 3px solid #0d9488; outline-offset: 2px; }
+.landing-hero-aside {
+  display: flex; flex-direction: column; justify-content: center;
+  min-width: 0; padding: 17px 12px 14px 15px;
+  border: 1px solid #e0eae5;
+  border-radius: 15px;
+  background: rgba(255,255,255,.67);
+}
+.landing-aside-label {
+  display: block;
+  max-width: 140px;
+  font-size: 9px; font-weight: 750; letter-spacing: .08em; line-height: 1.5;
+  color: #64748b;
+  margin-bottom: 16px;
+}
+.landing-aside-track {
+  position: absolute;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 0;
+  height: 116px;
+  transform: translateY(26px);
+}
+.landing-aside-dot { display: block; width: 10px; height: 10px; border-radius: 50%; background: white; border: 2px solid #059669; flex: 0 0 10px; }
+.landing-aside-dot.middle { background: #d1fae5; }
+.landing-aside-dot.last { background: #047857; }
+.landing-aside-connector { border-left: 2px dashed #a5d9bd; height: 43px; margin-left: 1px; }
+.landing-aside-points { display: flex; flex-direction: column; justify-content: space-between; gap: 24px; margin-left: 20px; min-height: 128px; }
+.landing-aside-points span { font-size: 11px; font-weight: 650; line-height: 1.3; color: #1d3b32; }
+.landing-hero-aside > p { margin: 18px 0 0; font-size: 10px; line-height: 1.6; color: #64748b; }
+.landing-method { display: flex; flex-direction: column; gap: 11px; width: 100%; }
+.landing-section-heading { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 10px; }
+.landing-section-kicker { display: block; margin-bottom: 4px; font-size: 10px; letter-spacing: .1em; color: #059669; font-weight: 750; }
+.landing-section-heading h3 { margin: 0; font-size: 16px; color: #13252e; letter-spacing: -.02em; font-weight: 720; }
+.landing-section-hint { font-size: 11px; color: #64748b; }
+.landing-method-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
+.landing-method-card {
+  display: flex; flex-direction: column; min-width: 0; gap: 4px;
+  padding: 15px 13px 14px;
+  border: 1px solid #e3ebe6; border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 3px 12px rgba(19,55,37,.028);
+}
+.landing-method-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+.landing-method-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: #e4f8ec; color: #059669; }
+.landing-method-number { color: #a4b3ae; font: 700 11px ui-monospace, SFMono-Regular, monospace; }
+.landing-method-card h4 { margin: 0; font-size: 12px; font-weight: 720; line-height: 1.25; }
+.landing-method-card p { margin: 0; font-size: 10.5px; line-height: 1.55; color: #64748b; }
+.landing-provenance { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; color: #6b8178; font-size: 10px; line-height: 1.4; }
+.landing-provenance span:first-child { display: inline-flex; align-items: center; gap: 8px; color: #356d55; font-weight: 600; }
+.landing-provenance-dot { width: 6px; height: 6px; box-shadow: none; }
+@media (max-width: 1160px) and (min-width: 901px) {
+  .landing-hero { grid-template-columns: 1fr; min-height: 0; }
+  .landing-hero-aside { display: none; }
+}
+@media (max-width: 900px) {
+  .global-split-layout.landing-layout { display: flex !important; flex-direction: column-reverse; gap: 16px; }
+  .landing-layout .global-panel-col, .landing-layout .global-map-col { flex: 0 0 auto; width: 100%; }
+  .landing-layout .compact-map-frame { height: 275px; min-height: 275px; }
+  .landing-hero { grid-template-columns: minmax(0,1fr) 167px; }
+}
+@media (max-width: 600px) {
+  .landing-layout .compact-map-frame { height: 230px; min-height: 230px; }
+  .landing-hero { grid-template-columns: minmax(0,1fr); padding: 21px 19px; min-height: 0; }
+  .landing-hero-aside { display: none; }
+  .landing-hero h2 { font-size: clamp(30px, 8vw, 37px); }
+  .landing-cta-stack { width: 100%; }
+  .landing-method-grid { grid-template-columns: 1fr; gap: 9px; }
+  .landing-method-card { padding: 12px 14px; }
+  .landing-method-card .landing-method-top { margin: 0; }
+  .landing-method-card p { max-width: 320px; }
+  .landing-section-hint { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-cta-stack button { transition: none; }
+}
