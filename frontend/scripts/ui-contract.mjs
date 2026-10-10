@@ -76,5 +76,5 @@ assert(utils.includes("raw === null"), 'missing extra-travel preference must use
 assert(utils.includes("crypto.subtle.digest"), 'private user ID must derive from bearer secret');
 assert(api.includes("Authorization:"), 'private API requests must include bearer secret');
 assert(backendAuth.includes("timingSafeEqual"), 'server must compare user identity safely');
-assert(liveSnapshot.includes("setEnvironment(null)"), 'stale live conditions must be discarded');
+assert(liveSnapshot.includes('LAST READINGS · RETRYING') && liveSnapshot.includes('setError(cause'), 'preserve and clearly label last good environmental readings on refresh failure');
 console.log('live AWS product and private-session contract passed');
