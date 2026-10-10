@@ -1,6 +1,6 @@
 # Architecture
 
-The browser only collects agenda/travel preferences and renders backend results. Route generation, environmental scoring and whole-day ranking stay on AWS.
+The browser collects agenda/travel preferences and renders route overlays on a GPU-independent OpenStreetMap raster map. Live route generation, environmental scoring and whole-day ranking stay on AWS. The India overview optionally uses Amazon Location Maps V2 as its basemap.
 
 ## Analysis workflow
 1. API Gateway calls the analysis Lambda.
@@ -22,3 +22,15 @@ Accepted plans use deterministic DynamoDB sort keys and transactional writes so 
 - Impossible candidates are excluded.
 
 Modeled exposure combines PM2.5 × minutes × mode factor with outdoor heat/UV/weather penalties. The original day is normalized to an index of 100; this is a relative decision-support model, not a medical dose.
+
+## Observability and privacy
+
+CloudWatch alarms monitor API Lambda errors, optimizer errors, Step Functions execution failures, and p95 API Lambda duration over 25 seconds (approaching API Gateway's timeout). A CloudWatch dashboard shows those metrics and DynamoDB capacity. The Express workflow intentionally logs only errors with `IncludeExecutionData: false`: personal agenda details and raw GPS inputs are not copied into Step Functions execution logs. The dashboard is for operators, not a claim that real-world exposure improvement has been medically verified.
+
+## Environmental provenance
+
+`Open-Meteo` returns hourly modeled forecasts, including **US EPA AQI**. These are not CPCB observations. The India screen samples six representative city coordinates, not physical air-quality monitoring stations; missing data is displayed as unavailable instead of AQI zero. Tomorrow.io is optional. PM2.5 is the particulate variable in modeled exposure, with temperature/UV outdoor penalties; PM10 and AQI are shown for context rather than double-counted as independent exposure factors.
+
+## Release verification
+
+The GitHub `ci` workflow runs optimizer stress tests, AWS SAM validation and headless Chromium regressions. The `CI/CD Pipeline` then deploys the backend, waits for Amplify to succeed, and uses a disposable anonymous guest in a controlled demo scenario to exercise API Gateway, Express Step Functions, deterministic or Bedrock explanations, DynamoDB transactional accept, History, and guest-session isolation. Demo plans never contribute to real community impact counters. Real-route coverage in India requires a separate geography/provenance audit.
