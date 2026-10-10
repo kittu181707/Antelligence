@@ -1277,3 +1277,61 @@ body { overflow-x: hidden; }
   .planner-layout .global-map-col .planner-map-review { display: none; }
   .planner-layout .itinerary-submit { display: flex; }
 }
+
+
+/* Planner scroll correction: use all available LEFT column height for every
+   form element, instead of trapping appointments in a tiny inner scrollbox.
+   The map + Review action stay stationary in the separate right column. */
+@media (min-width: 901px) {
+  .planner-layout .global-panel-col {
+    min-height: 0;
+    height: 100%;
+    display: block;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-gutter: stable;
+    scroll-padding-top: 10px;
+    scroll-padding-bottom: 25px;
+    padding-right: 8px;
+  }
+  .planner-layout .global-panel-col > .itinerary-editor {
+    display: flex;
+    flex-direction: column;
+    flex: none;
+    height: auto;
+    min-height: 100%;
+    width: 100%;
+    overflow: visible;
+    padding: 0 0 20px !important;
+  }
+  .planner-layout .itinerary-list,
+  .planner-layout .itinerary-list:empty {
+    display: grid;
+    flex: none;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+    overscroll-behavior: auto;
+    scrollbar-gutter: auto;
+    align-content: start;
+    padding: 1px 1px 5px;
+  }
+  .planner-layout .itinerary-editor .itinerary-add {
+    flex: 0 0 auto;
+    margin-bottom: 3px;
+  }
+  .planner-layout .global-map-col {
+    position: relative;
+    top: auto;
+    overflow: visible;
+    align-self: stretch;
+  }
+}
+@media (min-width: 901px) and (max-height: 575px) {
+  /* Even for exceptionally short windows, keep only one planner scrollbar. */
+  .global-split-layout.planner-layout { overflow: hidden !important; align-items: stretch; }
+  .planner-layout .global-panel-col { height: 100%; overflow-y: auto; }
+  .planner-layout .global-panel-col > .itinerary-editor { height: auto; min-height: 100%; }
+}
