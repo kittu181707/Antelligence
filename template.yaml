@@ -16,7 +16,7 @@ Parameters:
     NoEcho: true
   MapAllowedReferer:
     Type: String
-    Default: '*'
+    Default: 'http://localhost:5173/*'
     Description: Browser referer allowed to use the public map-only Amazon Location API key. Use the Amplify domain in production.
   AppTimezoneOffset:
     Type: String
@@ -56,7 +56,7 @@ Resources:
         AllowResources:
           - !Sub 'arn:${AWS::Partition}:geo-maps:${AWS::Region}::provider/default'
         AllowReferers:
-            - '*'
+            - !Ref MapAllowedReferer
             - 'http://localhost:5173/*'
             - 'http://127.0.0.1:5173/*'
             - 'http://localhost:4173/*'
@@ -147,8 +147,8 @@ Resources:
         Destinations:
           - CloudWatchLogsLogGroup:
               LogGroupArn: !GetAtt WorkflowLogGroup.Arn
-        IncludeExecutionData: true
-        Level: ALL
+        IncludeExecutionData: false
+        Level: ERROR
       Definition:
         StartAt: Prepare
         States:
@@ -423,6 +423,128 @@ Resources:
             Path: /api/explain
             Method: post
 
+
+  # Native AWS operational signals: see failures and slow executions without
+  # logging users' full private agenda or GPS route payloads to CloudWatch.
+  AnalyzeApiErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Analysis Lambda is failing; investigate API Gateway and workflow logs.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref AnalyzeApiFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+
+  OptimizeLambdaErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Route optimizer Lambda is failing.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref OptimizeFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+
+  WorkflowFailureAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: AWS Step Functions optimization workflows failed.
+      Namespace: AWS/States
+      MetricName: ExecutionsFailed
+      Dimensions:
+        - Name: StateMachineArn
+          Value: !Ref OptimizationStateMachine
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+
+  AnalyzeLatencyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: p95 analysis API duration above 25 seconds risks the REST API Gateway timeout.
+      Namespace: AWS/Lambda
+      MetricName: Duration
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref AnalyzeApiFunction
+      ExtendedStatistic: p95
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 25000
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+
+  HackathonObservabilityDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub '${AWS::StackName}-environmental-health'
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric", "x": 0, "y": 0, "width": 12, "height": 6,
+              "properties": {
+                "title": "Analysis API latency (p95) vs 29-second gateway limit",
+                "region": "${AWS::Region}", "view": "timeSeries", "period": 300,
+                "metrics": [
+                  ["AWS/Lambda", "Duration", "FunctionName", "${AnalyzeApiFunction}", {"stat": "p95", "label": "Analysis p95 (ms)"}]
+                ],
+                "annotations": {"horizontal": [{"label": "Gateway risk", "value": 29000}]}
+              }
+            },
+            {
+              "type": "metric", "x": 12, "y": 0, "width": 12, "height": 6,
+              "properties": {
+                "title": "Step Functions execution outcomes",
+                "region": "${AWS::Region}", "period": 300, "view": "timeSeries",
+                "metrics": [
+                  ["AWS/States", "ExecutionsSucceeded", "StateMachineArn", "${OptimizationStateMachine}", {"stat": "Sum"}],
+                  [".", "ExecutionsFailed", ".", ".", {"stat": "Sum"}],
+                  [".", "ExecutionsTimedOut", ".", ".", {"stat": "Sum"}]
+                ]
+              }
+            },
+            {
+              "type": "metric", "x": 0, "y": 6, "width": 12, "height": 6,
+              "properties": {
+                "title": "API and optimizer Lambda errors",
+                "region": "${AWS::Region}", "period": 300, "view": "timeSeries",
+                "metrics": [
+                  ["AWS/Lambda", "Errors", "FunctionName", "${AnalyzeApiFunction}", {"stat": "Sum"}],
+                  [".", "Errors", ".", "${OptimizeFunction}", {"stat": "Sum"}]
+                ]
+              }
+            },
+            {
+              "type": "metric", "x": 12, "y": 6, "width": 12, "height": 6,
+              "properties": {
+                "title": "Accepted plan persistence and read capacity",
+                "region": "${AWS::Region}", "period": 300, "view": "timeSeries",
+                "metrics": [
+                  ["AWS/DynamoDB", "ConsumedWriteCapacityUnits", "TableName", "${PlansTable}", {"stat": "Sum"}],
+                  [".", "ConsumedReadCapacityUnits", ".", ".", {"stat": "Sum"}]
+                ]
+              }
+            }
+          ]
+        }
+
 Outputs:
   ApiEndpoint:
     Description: API Gateway base URL
@@ -433,4 +555,7 @@ Outputs:
   StateMachineArn:
     Description: Optimization workflow ARN
     Value: !Ref OptimizationStateMachine
+  ObservabilityDashboardName:
+    Description: CloudWatch dashboard for analysis latency, workflow failures and DynamoDB persistence
+    Value: !Ref HackathonObservabilityDashboard
 
