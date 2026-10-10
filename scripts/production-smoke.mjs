@@ -237,3 +237,39 @@ console.log('LIVE GUNTUR THREE CAR LEGS PASS: ' + JSON.stringify({
   exposureReductionPct: multi.data.metrics.exposureReductionPct,
   accepted: false,
 }));
+
+
+/** Live Bike regression: pedestrian geometry is deliberately labeled as an
+ * estimated cycling journey. Do not claim bicycle-legal/safe graph coverage.
+ * Never accept the disposable smoke plan or inflate community impact. */
+const gunturBike = await request('/api/day/analyze', {
+  method: 'POST', authenticated: true, timeout: 29_000,
+  body: {
+    userId, date: testDate, homeLocation: gunturOrigin,
+    maxExtraMinutes: 10, demoMode: false,
+    events: [{ eventId: 'bike-smoke-gym', title: 'Gym', location: gunturDestination,
+      start: '11:30', end: '12:30', fixed: true }],
+    journeys: [{ tripId: 'guntur-estimated-bike', origin: gunturOrigin,
+      destination: gunturDestination, departureTime: '10:30',
+      arriveBy: '11:30', mode: 'bike' }],
+  },
+});
+check(gunturBike, 'Live Guntur estimated Bike trip with real AWS pedestrian geometry');
+const bicycle = gunturBike.data.trips?.[0]?.original;
+if (gunturBike.data.workflow?.dataMode !== 'live' ||
+    !bicycle || bicycle.mode !== 'bike' ||
+    !bicycle.source?.includes('pedestrian geometry') ||
+    !bicycle.source?.includes('not bicycle-verified') ||
+    !bicycle.label?.includes('estimate') ||
+    !Number.isFinite(bicycle.travelMinutes) || bicycle.travelMinutes <= 0 ||
+    !Number.isFinite(bicycle.modeledExposure) ||
+    !Array.isArray(bicycle.geometry) || bicycle.geometry.length < 2) {
+  throw new Error('Bike option failed to return a clearly disclosed live AWS geometry/estimated travel duration');
+}
+console.log('LIVE GUNTUR ESTIMATED BIKE PASS: ' + JSON.stringify({
+  date: testDate, durationMs: gunturBike.durationMs,
+  mode: bicycle.mode, minutes: bicycle.travelMinutes,
+  estimated: true, bicycleAccessVerified: false,
+  routePoints: bicycle.geometry.length,
+  source: bicycle.source, accepted: false,
+}));

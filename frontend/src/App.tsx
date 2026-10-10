@@ -22,7 +22,7 @@ import type { AcceptedPlan, AgendaPayload, DayAnalysis, JourneyInput, TripAnalys
 import { deriveJourneys, editableJourneys, getUserId, localDate, lastForecastDate, readStoredNumber, storeNumber } from './utils';
 
 const blankAgenda = (location?: Coordinates | null): AgendaPayload => ({ date: localDate(), homeLocation: location ? `${location.lat.toFixed(6)}, ${location.lon.toFixed(6)}` : 'Home', events: [] });
-type Step = 'landing'|'import'|'manual'|'analysis'|'overview'|'changes'|'final'|'accepted';
+type Step = 'landing'|'import'|'manual'|'overview'|'changes'|'final'|'accepted';
 type AgendaMode = 'import' | 'manual';
 const EMPTY_TRIPS: TripAnalysis[] = [];
 
@@ -38,6 +38,7 @@ export default function App() {
   const [analysis, setAnalysis] = useState<DayAnalysis | null>(null);
   const [accepted, setAccepted] = useState<AcceptedPlan | null>(null);
   const [busy, setBusy] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string>();
   const [whyTrip, setWhyTrip] = useState<TripAnalysis | null>(null);
   const [whyText, setWhyText] = useState('');
@@ -230,7 +231,7 @@ export default function App() {
       return;
     }
     if (!userId) { setError('Private session is initializing. Please retry.'); return; }
-    setStep('analysis'); setError(undefined); setBusy(true);
+    setError(undefined); setBusy(true); setIsAnalyzing(true);
     try {
       const result = await api.analyzeDay({ ...agenda, userId, journeys: plannedJourneys, maxExtraMinutes: maxExtra, demoMode: isDemo });
       setAnalysis(result); 
@@ -241,6 +242,7 @@ export default function App() {
       setError(e instanceof Error ? e.message : 'Analysis failed');
       setStep(agendaMode);
     } finally {
+      setIsAnalyzing(false);
       setBusy(false);
     }
   };
@@ -306,7 +308,6 @@ export default function App() {
     content = <TodayScreen agenda={agenda} journeys={journeys} analysis={analysis} whyText={whyText} whyTrip={whyTrip} onWhy={openWhy} busy={busy} isDemo={isDemo} liveLocation={liveLocation} onImport={() => startAgenda('import')} onManual={() => startAgenda('manual')} onDemo={loadDemo} onAnalyze={runAnalysis} error={error} />;
   }
   else if (step === 'import' || step === 'manual') content = <ImportScreen agenda={agenda} setAgenda={setAgenda} mode={step} journeys={plannedJourneys} setJourneys={setJourneys} maxExtra={maxExtra} setMaxExtra={setMaxExtra} onBack={() => setStep('landing')} onAnalyze={runAnalysis} onIcs={importIcs} busy={busy} error={error} liveLocation={liveLocation}/>;
-  else if (step === 'analysis') content = <AnalysisScreen error={error} onBack={() => setStep(agendaMode)}/>;
   else if (step === 'overview' && analysis) content = <OverviewScreen analysis={analysis} onChanges={() => setStep('changes')} onKeep={() => { setAnalysis(null); setStep('landing'); }}/>;
   else if (step === 'changes' && analysis) content = <ChangesScreen analysis={analysis} onBack={() => setStep('overview')} onWhy={openWhy} onFinal={() => setStep('final')}/>;
   else if (step === 'final' && analysis) content = <FinalPlanScreen analysis={analysis} onBack={() => setStep('changes')} onAccept={acceptPlan} busy={busy}/>;
@@ -385,6 +386,7 @@ export default function App() {
       </main>
       )}
       <BottomNav active={tab} onChange={onNav}/>
+      {isAnalyzing && <AnalysisScreen/>}
     </div>
   );
 }

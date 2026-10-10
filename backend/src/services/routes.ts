@@ -20,10 +20,9 @@ export async function routesForTrip(input: {
   tripOrdinal: number;
 }): Promise<BaseRoute[]> {
   if (input.demoMode) return demoRoutes(input);
-  if (input.mode === 'bike') throw new Error('Bike routing is unavailable from the configured live Amazon Location provider');
 
   const { CalculateRoutesCommand } = await import('@aws-sdk/client-geo-routes');
-  const travelMode = input.mode === 'walk' ? 'Pedestrian' : (input.mode === 'bus' || input.mode === 'metro') ? 'Transit' : 'Car';
+  const travelMode = input.mode === 'walk' || input.mode === 'bike' ? 'Pedestrian' : (input.mode === 'bus' || input.mode === 'metro') ? 'Transit' : 'Car';
 
   const command: any = {
     Origin: [input.origin.lon, input.origin.lat],
@@ -79,16 +78,30 @@ export async function routesForTrip(input: {
       (leg.Geometry?.LineString || []).map((point: number[]) => ({ lon: point[0], lat: point[1] })),
     );
 
+    const bikeEstimate = input.mode === 'bike';
     return {
       routeId: `aws-${input.mode}-${index}`,
       mode: input.mode,
-      label: index ? `${label(input.mode)} · alternate` : label(input.mode),
-      travelMinutes: Math.max(1, Math.round(durationSeconds / 60)),
+      label: bikeEstimate ? 'Bike · travel-time estimate' : index ? `${label(input.mode)} · alternate` : label(input.mode),
+      travelMinutes: bikeEstimate ? estimatedBikeMinutes(distanceMeters) : Math.max(1, Math.round(durationSeconds / 60)),
       distanceKm: Math.max(0.1, distanceMeters / 1000),
       geometry: geometry.length ? geometry : [input.origin, input.destination],
-      source: 'Amazon Location Routes V2',
+      // AWS Routes V2 has no Bicycle mode. These coordinates are pedestrian
+      // routing geometry, not evidence that each segment is cycling-legal.
+      source: bikeEstimate
+        ? 'Amazon Location Routes V2 pedestrian geometry · estimated cycling time (not bicycle-verified)'
+        : 'Amazon Location Routes V2',
     };
   });
+}
+
+/** Planning estimate only: 14 km/h with 15% allowance for junctions/stops.
+ * Cycling access, gradient, traffic and bike safety are NOT certified by AWS. */
+export function estimatedBikeMinutes(distanceMeters: number): number {
+  if (!Number.isFinite(distanceMeters) || distanceMeters < 0) {
+    throw new Error('Invalid distance for bike estimate');
+  }
+  return Math.max(1, Math.ceil((distanceMeters / 1000 / 14) * 60 * 1.15));
 }
 
 export function futureDeparture(date: string, time: string, now = Date.now()) {

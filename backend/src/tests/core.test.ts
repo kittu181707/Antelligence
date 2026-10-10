@@ -5,7 +5,7 @@ import { matchesSession, sessionUserId } from '../auth';
 import { optimizeCandidateSets } from '../core/optimizer';
 import { snapshotFromTomorrowValues } from '../services/environment';
 import { scoreRoute } from '../core/exposure';
-import { futureDeparture, userFacingRoutingError } from '../services/routes';
+import { estimatedBikeMinutes, futureDeparture, userFacingRoutingError } from '../services/routes';
 import { workflowFailureReason } from '../handlers/analyze-api';
 import { checkForecastDate, indiaToday, lastForecastDay } from '../core/time';
 import type { RouteCandidate, TripCandidateSet } from '../types';
@@ -147,6 +147,12 @@ const transitFailure = new Error('ValidationException');
 transitFailure.name = 'ValidationException';
 assert.match(userFacingRoutingError(transitFailure, 'bus').message, /Choose Car or Walk/);
 assert.match(userFacingRoutingError(transitFailure, 'car').message, /Check both locations/);
+assert.equal(estimatedBikeMinutes(0), 1);
+assert.equal(estimatedBikeMinutes(14000), 69, '14km at 14km/h plus 15% margin = 69min');
+assert.equal(estimatedBikeMinutes(1000), 5);
+assert.throws(() => estimatedBikeMinutes(-1), /Invalid distance/);
+assert.throws(() => estimatedBikeMinutes(Infinity), /Invalid distance/);
+
 
 const nestedFailure = JSON.stringify({ errorMessage: 'Live bus routing is unavailable for this journey.' });
 assert.match(workflowFailureReason('States.TaskFailed', nestedFailure), /Switch those journeys to Car or Walk/);

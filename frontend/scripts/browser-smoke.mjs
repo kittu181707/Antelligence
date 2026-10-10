@@ -51,6 +51,7 @@ const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '
 const errors = [];
 let envCalls = 0;
 const sentAnalyses = [];
+let rejectNextLiveAnalysis = true;
 try {
   const context = await browser.newContext({
     viewport: { width: 1365, height: 768 },
@@ -78,7 +79,19 @@ try {
       payload = { location: name, position: coords ? { lat: Number(coords[1]), lon: Number(coords[2]) } : gym, source: 'Amazon Location Places V2' };
     } else if (path.endsWith('/api/demo/day')) payload = demoDay;
     else if (path.endsWith('/api/day/analyze')) {
-      sentAnalyses.push(JSON.parse(route.request().postData() || '{}'));
+      const submitted = JSON.parse(route.request().postData() || '{}');
+      sentAnalyses.push(submitted);
+      if (!submitted.demoMode) {
+        // Browser tests prove the modal persists while a real request is pending,
+        // animates through stages, and disappears on both success and failure.
+        await new Promise((resolve) => setTimeout(resolve, 2500));
+        if (rejectNextLiveAnalysis) {
+          rejectNextLiveAnalysis = false;
+          await route.fulfill({ status: 503, contentType: 'application/json',
+            body: JSON.stringify({ message: 'Temporary routing outage. Try again.' }) });
+          return;
+        }
+      }
       payload = analysis;
     }
     else if (path.endsWith('/api/runtime-config')) payload = { mapApiKey: null, region: 'us-east-1', mapStyle: 'Standard', source: 'fixture' };
@@ -373,11 +386,15 @@ try {
     'three stops and the return home leg must have inline travel controls');
   assert(await page.getByRole('button', { name: 'Stop 1 by Car' }).getAttribute('aria-pressed') === 'true',
     'new stops must default to Car');
-  await page.getByRole('button', { name: 'Stop 1 by Walk' }).click();
-  assert(await page.getByRole('button', { name: 'Stop 1 by Walk' }).getAttribute('aria-pressed') === 'true',
+  assert(await page.getByRole('button', { name: 'Stop 1 by Bike' }).isEnabled(),
+    'Bike must be available in live travel mode');
+  await page.getByRole('button', { name: 'Stop 1 by Bike' }).click();
+  assert(await page.getByText('Cycling access and road safety are not verified.', { exact: false }).isVisible(),
+    'Bike must disclose that estimates use unverified pedestrian routing');
+  assert(await page.getByRole('button', { name: 'Stop 1 by Bike' }).getAttribute('aria-pressed') === 'true',
     'per-leg travel modes must be editable in the stop form');
   await page.getByLabel('Stop 1 travel departure').fill('08:10');
-  await page.getByRole('button', { name: 'Return home by Walk' }).click();
+  await page.getByRole('button', { name: 'Return home by Bike' }).click();
   await page.getByRole('button', { name: '+15 min' }).click();
   assert(await page.getByRole('button', { name: '+15 min' }).getAttribute('aria-pressed') === 'true',
     'extra-travel budget must be adjustable inline');
@@ -427,25 +444,53 @@ try {
     'Settings tab must be highlighted on the Settings page');
   await page.getByRole('button', { name: 'Today', exact: true }).click();
   await check('Today tab');
-  assert(await page.getByRole('button', { name: 'Stop 1 by Walk' }).getAttribute('aria-pressed') === 'true',
+  assert(await page.getByRole('button', { name: 'Stop 1 by Bike' }).getAttribute('aria-pressed') === 'true',
     'travel settings must survive Map and Settings navigation');
   assert.equal(await page.getByLabel('Stop 1 travel departure').inputValue(), '08:10',
     'custom departure must survive navigation');
+  // A failed AWS analysis must leave the input form editable, not navigate to a
+  // loading page or strand the user under a permanent blurred overlay.
   const beforeLiveAnalyze = sentAnalyses.length;
   await page.locator('.planner-map-review-button').click();
+  const overlay = page.locator('[data-analysis-overlay]');
+  await overlay.waitFor({ state: 'visible', timeout: 4000 });
+  assert(await page.locator('.planner-layout .itinerary-editor').count() === 1,
+    'planner must remain mounted behind the loading overlay');
+  assert.equal(await overlay.getAttribute('role'), 'dialog');
+  assert.equal(await overlay.getAttribute('aria-modal'), 'true');
+  const firstStage = await page.locator('.analysis-active-step strong').textContent();
+  await page.waitForTimeout(1150);
+  const laterStage = await page.locator('.analysis-active-step strong').textContent();
+  assert(firstStage !== laterStage, 'animated analysis stages must change during a pending request');
+  assert(await page.locator('.analysis-orbit-satellite').count() === 3,
+    'overlay must contain animated route, weather, and environment symbols');
+  await page.screenshot({ path: '/tmp/pollution-analysis-overlay.png', fullPage: true });
+  await overlay.waitFor({ state: 'detached', timeout: 9000 });
+  assert(await page.locator('.itinerary-editor .error-banner').getByText('Temporary routing outage.', { exact: false }).isVisible(),
+    'a real service error should return to the planner and explain the failure');
+  assert.equal(await page.locator('.itinerary-stop').count(), 3,
+    'failed analysis must retain all three stops');
+  assert.equal(await page.getByLabel('Stop 1 travel departure').inputValue(), '08:10',
+    'failed analysis must retain custom departure');
+
+  await page.locator('.planner-map-review-button').click();
+  await overlay.waitFor({ state: 'visible', timeout: 4000 });
   await page.waitForSelector('.raster-route-optimized', { timeout: 15000 });
-  assert(sentAnalyses.length === beforeLiveAnalyze + 1,
-    'one click from stops must send exactly one live analysis API request');
+  await overlay.waitFor({ state: 'detached', timeout: 4000 });
+  assert(sentAnalyses.length === beforeLiveAnalyze + 2,
+    'a failed attempt followed by a retry must produce exactly two live API calls');
   const submitted = sentAnalyses.at(-1);
   assert(submitted.demoMode === false && submitted.maxExtraMinutes === 15,
     'one-page analysis must send the selected live optimization budget');
   assert.equal(submitted.journeys.length, 4, 'analysis should include 3 arrivals and return leg');
-  assert.equal(submitted.journeys[0].mode, 'walk', 'Stop 1 mode must reach backend');
-  assert.equal(submitted.journeys[0].departureTime, '08:10', 'Stop 1 leave time must reach backend');
-  assert.equal(submitted.journeys[3].mode, 'walk', 'Return-home mode must reach backend');
+  assert.equal(submitted.journeys[0].mode, 'bike', 'Bike mode must reach the backend');
+  assert.equal(submitted.journeys[0].departureTime, '08:10', 'custom departure must reach backend');
+  assert.equal(submitted.journeys[3].mode, 'bike', 'Return-home Bike mode must reach backend');
   assert(!await page.getByText('Review your journeys', { exact: true }).count(),
-    'direct analyze must never display an intermediate review page');
-  await check('direct live Analyze from stop editor');
+    'direct analysis must never display an intermediate review page');
+  assert(!await page.locator('.analysis-overlay').count(),
+    'results must dismiss the overlay and display the results without loading-page navigation');
+  await check('direct live Bike Analyze from stop editor');
   // Reload clears an unsubmitted planner draft before exercising the demo entry point.
   await page.reload({ waitUntil: 'domcontentloaded' });
   await check('fresh home before demo');
