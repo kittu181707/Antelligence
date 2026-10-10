@@ -279,6 +279,12 @@ try {
     await page.getByRole('button', { name: 'Add another stop' }).click();
   }
   assert.equal(await page.locator('.itinerary-stop').count(), 12, 'maximum of twelve stops must remain supported');
+  // Clicking Add another stop scrolls the *whole* left column into view.
+  // Return to the top before measuring a deliberate 360px pane scroll.
+  await page.evaluate(() => {
+    const panel = document.querySelector('.planner-layout .global-panel-col');
+    if (panel) panel.scrollTop = 0;
+  });
   const overflow = await page.evaluate(() => {
     const main = document.querySelector('.planner-layout');
     const panel = document.querySelector('.planner-layout .global-panel-col');
