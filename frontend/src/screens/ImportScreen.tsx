@@ -57,13 +57,15 @@ export function ImportScreen({ agenda, setAgenda, mode, journeys, setJourneys, m
         {modes.map((option) => <button type="button" key={option.value}
           aria-label={`${name} by ${option.label}`}
           aria-pressed={journey.mode === option.value}
-          disabled={option.value === 'bike'}
-          title={option.value === 'bike' ? 'Bicycle routing is not available from the live provider' : option.label}
+          title={option.value === 'bike' ? 'Estimated bike travel: based on pedestrian route geometry, not verified bicycle access or safety' : option.label}
           className={journey.mode === option.value ? 'selected' : ''}
           onClick={() => editJourney(journey.tripId, { mode: option.value as TransportMode })}>
           {option.label}
         </button>)}
       </div>
+      {journey.mode === 'bike' && <p className="planner-bike-note">
+        Bike times are estimates using pedestrian routes. Cycling access and road safety are not verified. Check the route before riding.
+      </p>}
     </div>
   );
 
