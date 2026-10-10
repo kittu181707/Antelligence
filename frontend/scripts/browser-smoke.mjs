@@ -128,6 +128,9 @@ try {
     await page.getByRole('button', { name: tab, exact: true }).click();
     await check(tab + ' tab');
   }
+  // Reload clears an unsubmitted planner draft before exercising the demo entry point.
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await check('fresh home before demo');
   await page.getByRole('button', { name: 'Load Demo Route' }).click();
   await page.waitForSelector('.raster-stop-marker', { timeout: 15000 });
   assert(await page.locator('.raster-stop-marker').count() >= 2, 'analyzed trips must display real stop markers');
