@@ -404,8 +404,11 @@ try {
   assert(await page.locator('.fullpage-map-screen').isVisible(), 'Map tab must expand shared map to full-page view');
   assert.equal(await page.locator('[data-map-engine="dom-raster"]').count(), 1,
     'full-page map must use one stable map instance, not overlapping duplicates');
+  await page.waitForFunction(() =>
+    document.querySelectorAll('.fullpage-map-screen .raster-stop-marker.preview').length >= 3,
+    null, { timeout: 8000 });
   assert(await page.locator('.fullpage-map-screen .raster-stop-marker.preview').count() >= 3,
-    'full-page map should preserve draft preview markers');
+    'full-page map should preserve draft preview markers after resizing and re-fitting');
   const fullBounds = await page.locator('.fullpage-map-canvas').boundingBox();
   assert(fullBounds && fullBounds.width >= 1000 && fullBounds.height >= 350,
     'full-page map must occupy available content area: ' + JSON.stringify(fullBounds));
