@@ -353,6 +353,8 @@ try {
   await check('multi-stop editor');
 
   // Map must be a true full-page map and active highlight must follow it.
+  await page.waitForFunction(() =>
+    document.querySelectorAll('.raster-stop-marker.preview').length >= 3, null, { timeout: 5000 });
   await page.getByRole('button', { name: 'Map', exact: true }).click();
   assert(await page.locator('.fullpage-map-screen').isVisible(), 'Map tab must expand shared map to full-page view');
   assert.equal(await page.locator('[data-map-engine="dom-raster"]').count(), 1,
