@@ -18,7 +18,7 @@ export function AnalysisScreen({ error, onBack }: { error?: string; onBack: () =
       {steps.map((step, index) => index < currentStep ? <div className="progress-row" key={step}><Check/> <span>{step}</span></div> : null)}
       {currentStep < steps.length && !error ? <div className="progress-row active"><LoaderCircle className="spin"/><strong>{steps[currentStep]}…</strong></div> : null}
       {currentStep >= steps.length && !error ? <div className="progress-row active"><LoaderCircle className="spin"/><strong>Finding the best whole-day plan…</strong></div> : null}
-    </div> : <div className="error-banner"><strong>Analysis stopped.</strong><br/>{error}<div><button className="secondary" onClick={onBack}>Return to travel setup</button></div></div>}
+    </div> : <div className="error-banner"><strong>Analysis stopped.</strong><br/>{error}<div><button className="secondary" onClick={onBack}>Return to Plan your day</button></div></div>}
     <p className="fine-print">Processing environmental data and optimizing routes...</p>
   </div>;
 }
