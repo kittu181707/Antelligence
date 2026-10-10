@@ -50,6 +50,7 @@ const analysis = {
 const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-gpu'] });
 const errors = [];
 let envCalls = 0;
+const sentAnalyses = [];
 try {
   const context = await browser.newContext({
     viewport: { width: 1365, height: 768 },
@@ -76,7 +77,10 @@ try {
       const coords = name.match(/^(-?\\d+\\.\\d+),\\s*(-?\\d+\\.\\d+)$/);
       payload = { location: name, position: coords ? { lat: Number(coords[1]), lon: Number(coords[2]) } : gym, source: 'Amazon Location Places V2' };
     } else if (path.endsWith('/api/demo/day')) payload = demoDay;
-    else if (path.endsWith('/api/day/analyze')) payload = analysis;
+    else if (path.endsWith('/api/day/analyze')) {
+      sentAnalyses.push(JSON.parse(route.request().postData() || '{}'));
+      payload = analysis;
+    }
     else if (path.endsWith('/api/runtime-config')) payload = { mapApiKey: null, region: 'us-east-1', mapStyle: 'Standard', source: 'fixture' };
     else if (path.endsWith('/api/history')) payload = { plans: [] };
     else if (path.endsWith('/api/impact/community')) payload = { totalPlans: 0, totalCo2eSaved: 0 };
@@ -243,7 +247,7 @@ try {
     plannerLayout.review.top >= plannerLayout.mapCard.bottom &&
     plannerLayout.review.left >= plannerLayout.mapCard.left - 2 &&
     plannerLayout.review.right <= plannerLayout.mapCard.right + 2,
-    'Review journeys must be directly BELOW the right-hand map: ' + JSON.stringify(plannerLayout));
+    'Analyze must stay directly BELOW the right-hand map: ' + JSON.stringify(plannerLayout));
   assert(plannerLayout.review && plannerLayout.dock &&
     plannerLayout.review.bottom <= plannerLayout.dock.top - 7,
     'Review must never be covered by the bottom navigation: ' + JSON.stringify(plannerLayout));
@@ -364,16 +368,27 @@ try {
   }), 'Review journeys must stay in form flow, never float over stops');
   assert(await page.locator('.top-environment .env-chip').count() >= 3,
     'editing origin must not reset environmental chips to CONNECTING');
-  assert(await page.getByRole('button', { name: 'Review journeys' }).isEnabled(),
-    'valid timed three-stop schedule must enable Review journeys');
-  assert(await page.locator('.planner-map-review-button').isVisible(),
-    'desktop Review should be visibly docked under the map');
-  await page.getByRole('button', { name: 'Review journeys' }).click();
-  assert(await page.getByRole('button', { name: 'Analyze & optimize my day' }).isVisible(),
-    'timed multi-stop itinerary must advance to analysis review');
-  await page.getByRole('button', { name: 'Back', exact: false }).first().click();
-  assert.equal(await page.locator('.itinerary-stop').count(), 3, 'returning from review must preserve stops');
-
+  // Transportation setup is part of stop editing, not another review page.
+  assert.equal(await page.locator('.planner-travel-settings').count(), 4,
+    'three stops and the return home leg must have inline travel controls');
+  assert(await page.getByRole('button', { name: 'Stop 1 by Car' }).getAttribute('aria-pressed') === 'true',
+    'new stops must default to Car');
+  await page.getByRole('button', { name: 'Stop 1 by Walk' }).click();
+  assert(await page.getByRole('button', { name: 'Stop 1 by Walk' }).getAttribute('aria-pressed') === 'true',
+    'per-leg travel modes must be editable in the stop form');
+  await page.getByLabel('Stop 1 travel departure').fill('08:10');
+  await page.getByRole('button', { name: 'Return home by Walk' }).click();
+  await page.getByRole('button', { name: '+15 min' }).click();
+  assert(await page.getByRole('button', { name: '+15 min' }).getAttribute('aria-pressed') === 'true',
+    'extra-travel budget must be adjustable inline');
+  assert(!await page.getByText('Review your journeys', { exact: true }).count(),
+    'the separate travel review screen must no longer exist');
+  assert(await page.locator('.planner-map-review-button').isEnabled(),
+    'valid stops must enable direct analysis');
+  assert(await page.locator('.planner-map-review-button').getByText('Analyze & optimize my day').isVisible(),
+    'right-map action must say Analyze & optimize my day, not Review journeys');
+  assert.equal(await page.locator('.planner-travel-budget').count(), 1,
+    'extra-travel budget must be available in the original stops page');
   for (let i = 1; i <= 3; i += 1) {
     assert(await page.getByRole('textbox', { name: 'Stop ' + i + ' name' }).isVisible(),
       'stop ' + i + ' needs an editable name');
@@ -409,6 +424,25 @@ try {
     'Settings tab must be highlighted on the Settings page');
   await page.getByRole('button', { name: 'Today', exact: true }).click();
   await check('Today tab');
+  assert(await page.getByRole('button', { name: 'Stop 1 by Walk' }).getAttribute('aria-pressed') === 'true',
+    'travel settings must survive Map and Settings navigation');
+  assert.equal(await page.getByLabel('Stop 1 travel departure').inputValue(), '08:10',
+    'custom departure must survive navigation');
+  const beforeLiveAnalyze = sentAnalyses.length;
+  await page.locator('.planner-map-review-button').click();
+  await page.waitForSelector('.raster-route-optimized', { timeout: 15000 });
+  assert(sentAnalyses.length === beforeLiveAnalyze + 1,
+    'one click from stops must send exactly one live analysis API request');
+  const submitted = sentAnalyses.at(-1);
+  assert(submitted.demoMode === false && submitted.maxExtraMinutes === 15,
+    'one-page analysis must send the selected live optimization budget');
+  assert.equal(submitted.journeys.length, 4, 'analysis should include 3 arrivals and return leg');
+  assert.equal(submitted.journeys[0].mode, 'walk', 'Stop 1 mode must reach backend');
+  assert.equal(submitted.journeys[0].departureTime, '08:10', 'Stop 1 leave time must reach backend');
+  assert.equal(submitted.journeys[3].mode, 'walk', 'Return-home mode must reach backend');
+  assert(!await page.getByText('Review your journeys', { exact: true }).count(),
+    'direct analyze must never display an intermediate review page');
+  await check('direct live Analyze from stop editor');
   // Reload clears an unsubmitted planner draft before exercising the demo entry point.
   await page.reload({ waitUntil: 'domcontentloaded' });
   await check('fresh home before demo');
