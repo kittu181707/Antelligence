@@ -16,7 +16,7 @@ export async function geocode(location: string, demoMode: boolean): Promise<Coor
   if (!query) throw new Error('Location is required');
   if (query.length > 200) throw new Error('Location is too long');
   // The browser's live GPS origin is passed as a lat,lon pair; it needs no paid geocoding call.
-  const match = query.match(/^(-?\\d{1,2}(?:\\.\\d+)?),\\s*(-?\\d{1,3}(?:\\.\\d+)?)$/);
+  const match = query.match(/^(-?\d{1,2}(?:\.\d+)?),\s*(-?\d{1,3}(?:\.\d+)?)$/);
   if (match) {
     const lat = Number(match[1]), lon = Number(match[2]);
     if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) return { lat, lon };
