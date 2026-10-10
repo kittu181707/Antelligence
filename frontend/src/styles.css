@@ -1335,3 +1335,97 @@ body { overflow-x: hidden; }
   .planner-layout .global-panel-col { height: 100%; overflow-y: auto; }
   .planner-layout .global-panel-col > .itinerary-editor { height: auto; min-height: 100%; }
 }
+
+
+/* One-screen itinerary and route preferences. The left column scrolls as
+   one panel, with generous stop sections; map-side Analyze remains visible. */
+.itinerary-stop .stop-inputs { min-width: 0; }
+.planner-travel-settings {
+  display: flex; flex-direction: column; gap: 7px;
+  border-top: 1px solid #e7efe9;
+  padding-top: 11px;
+  margin-top: 5px;
+  min-width: 0;
+}
+.planner-travel-departure {
+  display: flex; align-items: center;
+  gap: 10px 14px; flex-wrap: wrap;
+}
+.planner-travel-departure label {
+  display: flex; flex-direction: row; align-items: center;
+  gap: 10px;
+  color: #475569; font-size: 11px; font-weight: 650;
+}
+.planner-travel-departure input[type=time] {
+  width: 122px; min-width: 0; min-height: 36px;
+  padding: 6px 10px; font-size: 12px;
+}
+.planner-travel-departure span {
+  font-size: 11px; color: #64748b;
+}
+.planner-travel-mode-label { font-size: 11px; font-weight: 700; color: #475569; }
+.planner-travel-modes {
+  display: grid; grid-template-columns: repeat(5,minmax(0,1fr));
+  gap: 6px; min-width: 0;
+}
+.planner-travel-modes button {
+  min-width: 0; min-height: 34px;
+  padding: 7px 2px; border: 1px solid #e0e5e8;
+  border-radius: 8px; font-size: 11px;
+  color: #334155; background: #f1f3f5;
+  cursor: pointer;
+}
+.planner-travel-modes button.selected {
+  background: #d1fae5; border-color: #34d399;
+  color: #065f46; font-weight: 700;
+}
+.planner-travel-modes button:disabled { opacity: .4; cursor: not-allowed; }
+.planner-travel-modes button:focus-visible,
+.planner-budget-buttons button:focus-visible {
+  outline: 2px solid #059669; outline-offset: 2px;
+}
+.planner-return-trip, .planner-travel-budget {
+  border: 1px solid #e1e8e4; background: #fff;
+  padding: 13px 16px; border-radius: 13px;
+  min-width: 0; flex: 0 0 auto;
+}
+.planner-return-title {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 9px; font-size: 12px; color: #102f25;
+}
+.planner-return-title svg { color: #059669; }
+.planner-travel-budget {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px 18px; flex-wrap: wrap;
+}
+.planner-travel-budget strong { font-size: 12px; }
+.planner-travel-budget p { margin: 4px 0 0; color: #64748b; font-size: 11px; line-height: 1.45; }
+.planner-budget-buttons { display: flex; flex-wrap: wrap; gap: 5px; }
+.planner-budget-buttons button {
+  white-space: nowrap; min-height: 32px; padding: 7px 10px;
+  border: 1px solid #e1e8e4; background: #f1f3f5;
+  border-radius: 8px; font-size: 11px; color: #334155;
+}
+.planner-budget-buttons button.selected {
+  background: #d1fae5; border-color: #34d399;
+  color: #065f46; font-weight: 700;
+}
+.planner-layout .itinerary-editor .route-warning {
+  flex: 0 0 auto; flex-wrap: wrap;
+  margin: 0; font-size: 11px;
+}
+.planner-layout .itinerary-editor .route-warning button { font-size: 11px; padding: 7px 9px; }
+@media (min-width: 901px) {
+  .planner-layout .itinerary-stop { padding: 13px 14px; }
+  .planner-layout .stop-inputs { gap: 9px; }
+  .planner-layout .itinerary-stop .stop-time-grid { gap: 12px; }
+  .planner-layout .itinerary-stop input:not([type=time]) { min-height: 39px; }
+  .planner-layout .global-panel-col > .itinerary-editor { padding-bottom: 22px !important; }
+}
+@media (max-width: 440px) {
+  .planner-travel-modes { gap: 4px; }
+  .planner-travel-modes button { min-height: 35px; font-size: 10px; }
+  .planner-travel-budget { padding: 12px; }
+  .planner-budget-buttons { width: 100%; }
+  .planner-budget-buttons button { flex: 1 1 auto; }
+}
