@@ -7,6 +7,7 @@ import { snapshotFromTomorrowValues } from '../services/environment';
 import { scoreRoute } from '../core/exposure';
 import { futureDeparture, userFacingRoutingError } from '../services/routes';
 import { workflowFailureReason } from '../handlers/analyze-api';
+import { checkForecastDate, indiaToday, lastForecastDay } from '../core/time';
 import type { RouteCandidate, TripCandidateSet } from '../types';
 
 const env = { pm25: 100, pm10: 150, aqi: 160, temperature: 30, humidity: 50, windSpeed: 8, uvIndex: 3, rainProbability: 0, source: 'test' };
@@ -153,6 +154,15 @@ assert.match(workflowFailureReason('ValidationException', ''), /Amazon Location 
 assert.match(workflowFailureReason('States.Timeout', ''), /took too long/);
 assert(!workflowFailureReason('States.TaskFailed', JSON.stringify({ errorMessage: 'request had private lat: 16.32857,80.4168' })).includes('16.32857'),
   'internal GPS/stack details must not leak to the browser');
+
+// Browser/backend in different timezones must agree on the Indian calendar day.
+const indiaMidnight = new Date('2026-10-10T18:35:00Z');
+assert.equal(indiaToday(indiaMidnight), '2026-10-11');
+assert.equal(lastForecastDay(indiaMidnight), '2026-10-17');
+assert.match(checkForecastDate('2026-10-10', indiaMidnight) || '', /past in India/);
+assert.equal(checkForecastDate('2026-10-11', indiaMidnight), null);
+assert.equal(checkForecastDate('2026-10-17', indiaMidnight), null);
+assert.match(checkForecastDate('2026-10-18', indiaMidnight) || '', /next seven days/);
 
 const token = 'ab'.repeat(32);
 const userId = 'user-' + createHash('sha256').update(token).digest('hex').slice(0, 32);
