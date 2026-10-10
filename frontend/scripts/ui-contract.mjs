@@ -18,6 +18,10 @@ const entryFile = read('src/main.tsx');
 const travel = read('src/screens/TravelScreen.tsx');
 const accepted = read('src/screens/AcceptedScreen.tsx');
 const india = read('src/screens/IndiaScreen.tsx');
+const settings = read('src/screens/SettingsScreen.tsx');
+const impact = read('src/screens/ImpactScreen.tsx');
+const template = read('../template.yaml');
+const environment = read('../backend/src/services/environment.ts');
 const api = read('src/api.ts');
 const pkg = read('package.json');
 const mapCss = read('src/components/Map.css');
@@ -35,6 +39,14 @@ assert(pkg.includes('maplibre-gl') && !pkg.includes('"leaflet"') && !pkg.include
 assert(india.includes('maps.geo.') && india.includes("traffic: 'All'"), 'India map must also use Amazon Location Maps V2');
 assert(!india.includes('react-leaflet') && !india.includes('cartocdn'), 'India view must not reintroduce third-party map tiles');
 
+assert(settings.includes('extra-travel budget') || settings.includes('Extra-travel budget'), 'settings must expose the actual travel budget');
+assert(!settings.includes('Fastest Route'), 'UI must never imply that zero extra minutes changes the exposure objective to fastest-route optimization');
+assert(impact.includes("dataMode === 'live'") && impact.includes('temporarily unavailable'), 'Impact must exclude demos and not silently show false zeros');
+assert(india.includes('not CPCB monitoring stations') && india.includes('US EPA scale'), 'India view must disclose model samples and AQI standard');
+assert(environment.includes('current-hour model forecast') && !environment.includes('Open-Meteo realtime fallback'), 'Open-Meteo must not be mislabeled as sensor realtime observations');
+assert(template.includes('AWS::CloudWatch::Dashboard') && template.includes('AnalyzeLatencyAlarm'), 'AWS cloud health dashboard and latency alarms missing');
+assert(template.includes('IncludeExecutionData: false'), 'workflow logs must not expose private agenda/GPS payload');
+assert(!template.includes("            - '*'"), 'map API key must not retain wildcard referer alongside constrained domain');
 assert(app.includes('LiveEnvironmentSnapshot'), 'shared top bar must show real environmental data across pages');
 assert(entryFile.includes('<ErrorBoundary') && app.includes('<ErrorBoundary label="Live map"') && app.includes('<ErrorBoundary label="Live conditions"'), 'map and live conditions errors must not cause a white screen');
 assert(errorBoundary.includes('getDerivedStateFromError') && errorBoundary.includes('Try again'), 'render crash must present a recoverable UI');
