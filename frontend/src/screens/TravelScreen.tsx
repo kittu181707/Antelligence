@@ -11,7 +11,7 @@ export function TravelScreen({ journeys, setJourneys, maxExtra, setMaxExtra, onB
   const hasTransit = !isDemo && journeys.some((journey) => journey.mode === 'bus' || journey.mode === 'metro');
 
   return <div className="screen travel-review">
-    <button className="back" onClick={onBack}><ArrowLeft size={17}/> Edit stops</button>
+    <button className="back" onClick={onBack}><ArrowLeft size={17}/> Back to stops</button>
     <div className="screen-title">
       <span className="welcome-kicker">ROUTE REVIEW</span>
       <h1>Review your journeys</h1>
