@@ -101,11 +101,28 @@ assert(styles.includes('.global-split-layout.planner-layout') &&
 
 assert(!app.includes("step === 'travel'") && !app.includes('TravelScreen') &&
   !app.includes('continueToTravel'), 'intermediate journey-review screen must be removed');
+assert(app.includes('isAnalyzing && <AnalysisScreen/>') &&
+  !app.includes("setStep('analysis')") &&
+  app.includes('setIsAnalyzing(false)'),
+  'live Analyze must run over the current planner and unmount the overlay on success AND failure');
+const overlay = read('src/screens/AnalysisScreen.tsx');
+assert(overlay.includes('aria-modal="true"') && overlay.includes('data-analysis-overlay') &&
+  overlay.includes('Progress animation is illustrative'),
+  'animation must show engaging modal status without inventing server-side completion');
+const routeService = read('../backend/src/services/routes.ts');
+assert(routeService.includes("input.mode === 'walk' || input.mode === 'bike'") &&
+  routeService.includes('estimatedBikeMinutes') &&
+  routeService.includes('not bicycle-verified'),
+  'Bike estimates must use honest AWS pedestrian geometry provenance');
+
 assert(travel.includes('transportChoices') && travel.includes('planner-travel-budget') &&
   travel.includes('Return home') && travel.includes('onAnalyze'),
   'stop page must support mode, departure, return journey, budget and direct Analyze');
 assert(app.includes('isDemo={isDemo}'), 'demo/live provenance must flow into screens and map');
-assert(travel.includes("option.value === 'bike'"), 'unverified bicycle routing must stay disabled in live stop editor');
+assert(travel.includes('planner-bike-note') &&
+  travel.includes('Cycling access and road safety are not verified') &&
+  !travel.includes("disabled={option.value === 'bike'}"),
+  'Bike must remain selectable with a visible approximation/safety disclosure');
 assert(!accepted.includes('google.com/maps'), 'accepted plan must not substitute an unanalyzed Google route');
 
 assert(utils.includes("raw === null"), 'missing extra-travel preference must use default');
