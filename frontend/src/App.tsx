@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Maximize2 } from 'lucide-react';
 import { api } from './api';
 import { BottomNav, type NavTab } from './components/BottomNav';
@@ -12,7 +12,6 @@ import { ImportScreen, canReviewAgenda } from './screens/ImportScreen';
 import { LandingScreen } from './screens/LandingScreen';
 import { OverviewScreen } from './screens/OverviewScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
-import { TravelScreen } from './screens/TravelScreen';
 import { ImpactScreen } from './screens/ImpactScreen';
 import { IndiaScreen } from './screens/IndiaScreen';
 import { TodayScreen } from './screens/TodayScreen';
@@ -20,10 +19,10 @@ import { Map } from './components/Map';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { LiveEnvironmentSnapshot } from './components/LiveEnvironmentSnapshot';
 import type { AcceptedPlan, AgendaPayload, DayAnalysis, JourneyInput, TripAnalysis, Coordinates } from './types';
-import { deriveJourneys, getUserId, localDate, lastForecastDate, readStoredNumber, storeNumber } from './utils';
+import { deriveJourneys, editableJourneys, getUserId, localDate, lastForecastDate, readStoredNumber, storeNumber } from './utils';
 
 const blankAgenda = (location?: Coordinates | null): AgendaPayload => ({ date: localDate(), homeLocation: location ? `${location.lat.toFixed(6)}, ${location.lon.toFixed(6)}` : 'Home', events: [] });
-type Step = 'landing'|'import'|'manual'|'travel'|'analysis'|'overview'|'changes'|'final'|'accepted';
+type Step = 'landing'|'import'|'manual'|'analysis'|'overview'|'changes'|'final'|'accepted';
 type AgendaMode = 'import' | 'manual';
 const EMPTY_TRIPS: TripAnalysis[] = [];
 
@@ -51,6 +50,7 @@ export default function App() {
   const [previewPoints, setPreviewPoints] = useState<{ id: string; label: string; point: Coordinates }[]>([]);
   const placeCache = useRef(new globalThis.Map<string, Coordinates>());
   const previousIndiaDay = useRef(localDate());
+  const plannedJourneys = useMemo(() => editableJourneys(agenda, journeys), [agenda, journeys]);
 
   useEffect(() => {
     let active = true;
@@ -89,7 +89,7 @@ export default function App() {
   });
   useEffect(() => {
     let active = true;
-    if (isDemo || analysis || (tab !== 'today' && tab !== 'map') || (step !== 'manual' && step !== 'import' && step !== 'travel')) {
+    if (isDemo || analysis || (tab !== 'today' && tab !== 'map') || (step !== 'manual' && step !== 'import')) {
       setPreviewPoints([]);
       return () => { active = false; };
     }
@@ -212,18 +212,6 @@ export default function App() {
     }
   };
 
-  const continueToTravel = () => {
-    const newJourneys = deriveJourneys(agenda.events, agenda.homeLocation);
-    // Keep user's customizations if the structure matches
-    if (journeys.length === newJourneys.length && journeys.every((j, i) => j.origin === newJourneys[i].origin && j.destination === newJourneys[i].destination)) {
-      // Structure matches, do not overwrite
-    } else {
-      setJourneys(newJourneys);
-    }
-    setStep('travel');
-    setError(undefined);
-  };
-
   const runAnalysis = async () => {
     if (busy) return;
     if (!isDemo && (agenda.date < localDate() || agenda.date > lastForecastDate())) {
@@ -231,9 +219,16 @@ export default function App() {
       setError('Choose a day within the next seven days in India before analyzing your route.');
       return;
     }
-    if (!agenda.events.length) { setStep('manual'); setError('Add at least one stop before analyzing your day.'); return; }
-    const plannedJourneys = journeys.length ? journeys : deriveJourneys(agenda.events, agenda.homeLocation);
-    if (!plannedJourneys.length) { setStep('manual'); setError('Add a destination to continue.'); return; }
+    if (!canReviewAgenda(agenda)) {
+      setStep(agendaMode);
+      setError('Complete your starting location, stop names, destinations and non-overlapping times before analyzing.');
+      return;
+    }
+    if (!plannedJourneys.length) {
+      setStep(agendaMode);
+      setError('Add a valid destination to continue.');
+      return;
+    }
     if (!userId) { setError('Private session is initializing. Please retry.'); return; }
     setStep('analysis'); setError(undefined); setBusy(true);
     try {
@@ -244,7 +239,7 @@ export default function App() {
       setStep('landing'); // Render dashboard
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Analysis failed');
-      setStep('travel');
+      setStep(agendaMode);
     } finally {
       setBusy(false);
     }
@@ -295,7 +290,7 @@ export default function App() {
     if (next === 'today' && tab !== 'map') setStep('landing');
     if (next === 'optimize') {
       if (analysis) setStep('final');
-      else if (agenda.events.length) continueToTravel();
+      else if (agenda.events.length) setStep(agendaMode);
       else { setAgenda(blankAgenda(liveLocation)); setAgendaMode('manual'); setStep('manual'); }
     }
   };
@@ -309,9 +304,8 @@ export default function App() {
   else if (step === 'landing') {
     content = <TodayScreen agenda={agenda} journeys={journeys} analysis={analysis} whyText={whyText} whyTrip={whyTrip} onWhy={openWhy} busy={busy} isDemo={isDemo} liveLocation={liveLocation} onImport={() => startAgenda('import')} onManual={() => startAgenda('manual')} onDemo={loadDemo} onAnalyze={runAnalysis} error={error} />;
   }
-  else if (step === 'import' || step === 'manual') content = <ImportScreen agenda={agenda} setAgenda={setAgenda} mode={step} onBack={() => setStep('landing')} onContinue={continueToTravel} onIcs={importIcs} busy={busy} error={error} liveLocation={liveLocation}/>;
-  else if (step === 'travel') content = <TravelScreen journeys={journeys} setJourneys={setJourneys} maxExtra={maxExtra} setMaxExtra={setMaxExtra} onBack={() => setStep(agendaMode)} onAnalyze={runAnalysis} isDemo={isDemo} busy={busy} error={error}/>;
-  else if (step === 'analysis') content = <AnalysisScreen error={error} onBack={() => setStep('travel')}/>;
+  else if (step === 'import' || step === 'manual') content = <ImportScreen agenda={agenda} setAgenda={setAgenda} mode={step} journeys={plannedJourneys} setJourneys={setJourneys} maxExtra={maxExtra} setMaxExtra={setMaxExtra} onBack={() => setStep('landing')} onAnalyze={runAnalysis} onIcs={importIcs} busy={busy} error={error} liveLocation={liveLocation}/>;
+  else if (step === 'analysis') content = <AnalysisScreen error={error} onBack={() => setStep(agendaMode)}/>;
   else if (step === 'overview' && analysis) content = <OverviewScreen analysis={analysis} onChanges={() => setStep('changes')} onKeep={() => { setAnalysis(null); setStep('landing'); }}/>;
   else if (step === 'changes' && analysis) content = <ChangesScreen analysis={analysis} onBack={() => setStep('overview')} onWhy={openWhy} onFinal={() => setStep('final')}/>;
   else if (step === 'final' && analysis) content = <FinalPlanScreen analysis={analysis} onBack={() => setStep('changes')} onAccept={acceptPlan} busy={busy}/>;
@@ -376,8 +370,8 @@ export default function App() {
           {tab === 'today' && (step === 'manual' || step === 'import') && (
             <div className="planner-map-review">
               <button type="button" className="primary planner-map-review-button"
-                onClick={continueToTravel} disabled={busy || !canReviewAgenda(agenda)}>
-                Review journeys <span aria-hidden="true">→</span>
+                onClick={runAnalysis} disabled={busy || !canReviewAgenda(agenda)}>
+                {busy ? 'Analyzing your day…' : 'Analyze & optimize my day'} <span aria-hidden="true">→</span>
               </button>
               <p>{agenda.events.length === 0
                 ? 'Add your first stop on the left to continue.'
