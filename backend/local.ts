@@ -8,6 +8,7 @@ import { handler as explain } from "./src/handlers/explain";
 import { handler as india } from "./src/handlers/india";
 import { handler as environmentCurrent } from "./src/handlers/environment-current";
 import { handler as runtimeConfig } from "./src/handlers/runtime-config";
+import { handler as resolvePlace } from "./src/handlers/resolve-place";
 import { runDirectAnalysis } from "./src/services/analyze";
 import { handler as prepare } from "./src/handlers/prepare";
 import { matchesSession, sessionUserId } from "./src/auth";
@@ -88,6 +89,9 @@ app.get("/api/india", async (req, res) =>
 );
 app.post("/api/environment/current", async (req, res) =>
   send(res, await environmentCurrent(event(req))),
+);
+app.post("/api/places/resolve", async (req, res) =>
+  send(res, await resolvePlace(event(req))),
 );
 app.get("/api/runtime-config", async (req, res) =>
   send(res, await runtimeConfig(event(req))),
