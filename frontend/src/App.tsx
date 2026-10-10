@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from './api';
 import { BottomNav, type NavTab } from './components/BottomNav';
 import { Drawer } from './components/Drawer';
@@ -47,6 +47,8 @@ export default function App() {
   const [isDemo, setIsDemo] = useState(false);
   const [liveLocation, setLiveLocation] = useState<Coordinates | null>(null);
   const [userId, setUserId] = useState('');
+  const [previewPoints, setPreviewPoints] = useState<{ id: string; label: string; point: Coordinates }[]>([]);
+  const placeCache = useRef(new globalThis.Map<string, Coordinates>());
 
   useEffect(() => {
     let active = true;
@@ -77,6 +79,56 @@ export default function App() {
       if (watchId !== undefined) navigator.geolocation.clearWatch(watchId);
     };
   }, []);
+  // Resolve itinerary stops after typing pauses. Result labels are map previews,
+  // not claims of calculated road routes until a real analysis has completed.
+  const itineraryPlaceKey = JSON.stringify({
+    home: agenda.homeLocation,
+    stops: agenda.events.map((event) => [event.eventId, event.title, event.location, event.start]),
+  });
+  useEffect(() => {
+    let active = true;
+    if (isDemo || analysis || tab !== 'today' || (step !== 'manual' && step !== 'import' && step !== 'travel')) {
+      setPreviewPoints([]);
+      return () => { active = false; };
+    }
+    const timer = window.setTimeout(() => {
+      const coordinate = (value: string): Coordinates | null => {
+        const match = value.trim().match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
+        if (!match) return null;
+        const lat = Number(match[1]), lon = Number(match[2]);
+        return lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180 ? { lat, lon } : null;
+      };
+      const ordered = [...agenda.events].sort((a,b) => a.start.localeCompare(b.start));
+      const locations = [
+        { id: 'preview-origin', label: 'Starting location', location: agenda.homeLocation },
+        ...ordered.map((event) => ({ id: event.eventId, label: event.title || event.location, location: event.location })),
+      ];
+      const collected: Array<{ id: string; label: string; point: Coordinates } | null> = Array(locations.length).fill(null);
+      setPreviewPoints([]);
+      void (async () => {
+        for (let index = 0; index < locations.length && active; index++) {
+          const item = locations[index];
+          const name = item.location.trim();
+          if (!name || name.toLowerCase() === 'home') {
+            if (index === 0 && liveLocation) collected[index] = { id: item.id, label: item.label, point: liveLocation };
+          } else {
+            let point = coordinate(name) || placeCache.current.get(name.toLowerCase());
+            if (!point && name.length >= 3) {
+              try {
+                point = (await api.resolvePlace(name)).position;
+                if (!active) return;
+                if (Number.isFinite(point.lat) && Number.isFinite(point.lon)) placeCache.current.set(name.toLowerCase(), point);
+              } catch { /* User may still be typing an incomplete place. */ }
+            }
+            if (point) collected[index] = { id: item.id, label: item.label, point };
+          }
+          if (active) setPreviewPoints(collected.filter((p): p is NonNullable<typeof p> => p !== null));
+        }
+      })();
+    }, 850);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [itineraryPlaceKey, isDemo, analysis, tab, step, liveLocation?.lat, liveLocation?.lon]);
+
   const setMaxExtra = (value: number) => { setMaxExtraState(value); storeNumber('max_extra_minutes', value); };
 
   const startAgenda = (mode: AgendaMode) => {
@@ -84,6 +136,7 @@ export default function App() {
     setAgenda(blankAgenda(liveLocation));
     setJourneys([]);
     setAnalysis(null);
+    setPreviewPoints([]);
     setAgendaMode(mode);
     setStep(mode);
     setError(undefined);
@@ -260,8 +313,8 @@ export default function App() {
         <aside className="global-map-col" aria-label="Live route overview">
           <div className="compact-map-card">
             <div className="compact-map-head"><div><span className="welcome-kicker">YOUR ROUTE</span><h2>Live map</h2></div><span className="location-indicator">{liveLocation ? 'Location detected' : 'Enable location for live position'}</span></div>
-            <div className="compact-map-frame"><ErrorBoundary label="Live map" compact><Map trips={analysis?.trips ?? EMPTY_TRIPS} liveLocation={liveLocation} isDemo={isDemo} /></ErrorBoundary></div>
-            <p className="compact-map-note">{analysis?.trips.length ? `${analysis.trips.length} journey${analysis.trips.length === 1 ? '' : 's'} mapped · Click stops for details` : 'Your live position appears here. Add stops and analyze to plot your day.'}</p>
+            <div className="compact-map-frame"><ErrorBoundary label="Live map" compact><Map trips={analysis?.trips ?? EMPTY_TRIPS} liveLocation={liveLocation} isDemo={isDemo} previewPoints={previewPoints} /></ErrorBoundary></div>
+            <p className="compact-map-note">{analysis?.trips.length ? `${analysis.trips.length} journey${analysis.trips.length === 1 ? '' : 's'} mapped · Click stops for details` : previewPoints.length > 1 ? `${previewPoints.length - 1} stop(s) placed · Dashed straight-line preview; Analyze for actual roads.` : 'Your live position appears here. Add stops and analyze to plot your day.'}</p>
           </div>
         </aside>
       </main>
