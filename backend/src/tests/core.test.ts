@@ -102,6 +102,7 @@ const rescued = optimizeCandidateSets({
     original: longOriginal, candidates: [longOriginal, longEarly] }],
 });
 assert.equal(rescued.trips[0].recommended.departureTime, '07:55');
+assert.equal(rescued.trips[0].arriveBy, '09:00');
 assert.equal(rescued.metrics.appointmentsChanged, 0);
 assert.equal(rescued.changes.length, 1, 'earlier departure should beat lower exposure when otherwise late');
 const unavoidable = optimizeCandidateSets({

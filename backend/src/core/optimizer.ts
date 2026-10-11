@@ -79,6 +79,7 @@ export function optimizeCandidateSets(input: OptimizeSetsInput): DayAnalysis {
       tripId: set.journey.tripId,
       origin: set.journey.origin,
       destination: set.journey.destination,
+      arriveBy: set.journey.arriveBy,
       original: set.original,
       recommended,
       candidatesEvaluated: set.candidates.length,
