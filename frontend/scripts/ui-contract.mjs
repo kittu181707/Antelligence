@@ -66,7 +66,7 @@ assert(app.includes('src="/antelligence-wordmark.png"') &&
   !app.includes('<h1>ANTELLIGENCE</h1>'),
   'header must show only the supplied ANTELLIGENCE wordmark, not the old drawn ant and typed title');
 assert(sharedHeaderStyles.includes('.ant-brand-wordmark {') &&
-  sharedHeaderStyles.includes('width: min(205px, 100%);') &&
+  sharedHeaderStyles.includes('width: min(180px, 100%);') &&
   sharedHeaderStyles.includes('.app-welcome .ant-brand-copy p {') &&
   sharedHeaderStyles.includes('.top-environment { flex: 0 1 45%;') &&
   sharedHeaderStyles.includes('.top-environment .env-chip { min-width: 0;'),
