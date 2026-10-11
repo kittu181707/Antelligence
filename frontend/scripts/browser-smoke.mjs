@@ -549,6 +549,36 @@ try {
   await page.locator('.raster-stop-marker').last().click();
   assert(await page.locator('.raster-stop-detail').isVisible(), 'stop click must show details');
   await check('analyzed demo route');
+  // Results use a dedicated left scrollport: scrolling journey cards must never
+  // move the interactive map, and the dock must not obscure the last card.
+  assert(await page.locator('.results-layout .results-timeline').isVisible(),
+    'analyzed Today needs the styled journey timeline');
+  assert(await page.locator('.results-impact-panel').isVisible(),
+    'impact summary must appear under the map instead of under the navigation dock');
+  const resultsScroll = page.locator('.results-layout .global-panel-col');
+  const resultBefore = await page.evaluate(() => {
+    const panel = document.querySelector('.results-layout .global-panel-col');
+    const map = document.querySelector('.results-layout .compact-map-frame');
+    const main = document.querySelector('.results-layout');
+    return {scrollHeight: panel?.scrollHeight, clientHeight: panel?.clientHeight,
+      mapY: map?.getBoundingClientRect().y, mainOverflow: getComputedStyle(main).overflowY};
+  });
+  assert(resultBefore.scrollHeight > resultBefore.clientHeight && resultBefore.mainOverflow === 'hidden',
+    'desktop results must scroll inside the left column only: ' + JSON.stringify(resultBefore));
+  await resultsScroll.evaluate((panel) => { panel.scrollTop = 190; });
+  await page.waitForTimeout(120);
+  const resultAfter = await page.evaluate(() => ({
+    scrollTop: document.querySelector('.results-layout .global-panel-col')?.scrollTop,
+    mapY: document.querySelector('.results-layout .compact-map-frame')?.getBoundingClientRect().y,
+  }));
+  assert(resultAfter.scrollTop > 20 && Math.abs(resultAfter.mapY - resultBefore.mapY) <= 2,
+    'moving the results must not move the map: ' + JSON.stringify({resultBefore,resultAfter}));
+  await resultsScroll.evaluate((panel) => { panel.scrollTop = panel.scrollHeight; });
+  await page.waitForTimeout(100);
+  const lastCards = await page.locator('.results-layout .dashboard-bottom').boundingBox();
+  const dockBounds = await page.locator('.bottom-nav').boundingBox();
+  assert(lastCards && dockBounds && lastCards.y + lastCards.height < dockBounds.y - 4,
+    'scrolled-to-bottom summary must clear the fixed navigation: ' + JSON.stringify({lastCards,dockBounds}));
   await page.screenshot({ path: '/tmp/pollution-demo-desktop.png', fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 844 });
