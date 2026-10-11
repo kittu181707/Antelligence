@@ -351,7 +351,7 @@ export default function App() {
           <div className="fullpage-map-header">
             <div>
               <span className="welcome-kicker">EXPLORE YOUR JOURNEY</span>
-              <h2>Live route map</h2>
+              <h2>{isDemo ? 'Demo route map' : 'AWS route view'}</h2>
               <p>{analysis?.trips.length
                 ? `${analysis.trips.length} analyzed journey(s). Select numbered stops for details.`
                 : previewPoints.length > 1
@@ -382,9 +382,9 @@ export default function App() {
             </div>
           </Drawer>}
         </section>
-        <aside className="global-map-col" aria-label="Live route overview">
+        <aside className="global-map-col" aria-label="AWS route overview">
           <div className="compact-map-card">
-            <div className="compact-map-head"><div><span className="welcome-kicker">YOUR ROUTE</span><h2>Live map</h2></div><div className="compact-map-head-actions"><span className="location-indicator">{liveLocation ? 'Location detected' : 'Enable location for live position'}</span><button type="button" className="compact-map-expand" title="Expand map to full page" aria-label="Expand map to full page" onClick={() => onNav('map')}><Maximize2 size={16}/></button></div></div>
+            <div className="compact-map-head"><div><span className="welcome-kicker">YOUR ROUTE</span><h2>{isDemo ? 'Demo map' : 'AWS routes'}</h2></div><div className="compact-map-head-actions"><span className="location-indicator">{liveLocation ? 'Location detected' : 'Enable location for live position'}</span><button type="button" className="compact-map-expand" title="Expand map to full page" aria-label="Expand map to full page" onClick={() => onNav('map')}><Maximize2 size={16}/></button></div></div>
             <div className="compact-map-frame" title="Click map to open full-page view" onClick={(event) => {
               if (!(event.target as HTMLElement).closest('button, a')) onNav('map');
             }}><ErrorBoundary label="Live map" compact><Map trips={analysis?.trips ?? EMPTY_TRIPS} liveLocation={liveLocation} isDemo={isDemo} previewPoints={previewPoints} /></ErrorBoundary></div>
