@@ -4,7 +4,7 @@ import { api } from './api';
 import { BottomNav, type NavTab } from './components/BottomNav';
 import { Drawer } from './components/Drawer';
 import { AcceptedScreen } from './screens/AcceptedScreen';
-import { AnalysisScreen } from './screens/AnalysisScreen';
+import { AnalysisScreen, ANALYSIS_COMPLETED_HOLD_MS, ANALYSIS_MIN_DISPLAY_MS } from './screens/AnalysisScreen';
 import { ChangesScreen } from './screens/ChangesScreen';
 import { FinalPlanScreen } from './screens/FinalPlanScreen';
 import { HistoryScreen } from './screens/HistoryScreen';
@@ -39,6 +39,7 @@ export default function App() {
   const [accepted, setAccepted] = useState<AcceptedPlan | null>(null);
   const [busy, setBusy] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisComplete, setAnalysisComplete] = useState(false);
   const [error, setError] = useState<string>();
   const [whyTrip, setWhyTrip] = useState<TripAnalysis | null>(null);
   const [whyText, setWhyText] = useState('');
@@ -231,9 +232,16 @@ export default function App() {
       return;
     }
     if (!userId) { setError('Private session is initializing. Please retry.'); return; }
-    setError(undefined); setBusy(true); setIsAnalyzing(true);
+    setError(undefined); setBusy(true); setAnalysisComplete(false); setIsAnalyzing(true);
+    const startedAt = Date.now();
     try {
       const result = await api.analyzeDay({ ...agenda, userId, journeys: plannedJourneys, maxExtraMinutes: maxExtra, demoMode: isDemo });
+      // Intermediate ticks are illustrative. The last tick is shown only
+      // after the API succeeds, before the result page replaces this overlay.
+      setAnalysisComplete(true);
+      await new Promise<void>((resolve) => window.setTimeout(resolve, Math.max(
+        ANALYSIS_COMPLETED_HOLD_MS, ANALYSIS_MIN_DISPLAY_MS - (Date.now() - startedAt),
+      )));
       setAnalysis(result); 
       setJourneys(plannedJourneys);
       setTab('today');
@@ -243,6 +251,7 @@ export default function App() {
       setStep(agendaMode);
     } finally {
       setIsAnalyzing(false);
+      setAnalysisComplete(false);
       setBusy(false);
     }
   };
@@ -386,7 +395,7 @@ export default function App() {
       </main>
       )}
       <BottomNav active={tab} onChange={onNav}/>
-      {isAnalyzing && <AnalysisScreen/>}
+      {isAnalyzing && <AnalysisScreen completed={analysisComplete}/>}
     </div>
   );
 }

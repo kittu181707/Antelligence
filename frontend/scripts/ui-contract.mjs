@@ -101,14 +101,21 @@ assert(styles.includes('.global-split-layout.planner-layout') &&
 
 assert(!app.includes("step === 'travel'") && !app.includes('TravelScreen') &&
   !app.includes('continueToTravel'), 'intermediate journey-review screen must be removed');
-assert(app.includes('isAnalyzing && <AnalysisScreen/>') &&
+assert(app.includes('isAnalyzing && <AnalysisScreen completed={analysisComplete}/>') &&
   !app.includes("setStep('analysis')") &&
   app.includes('setIsAnalyzing(false)'),
   'live Analyze must run over the current planner and unmount the overlay on success AND failure');
 const overlay = read('src/screens/AnalysisScreen.tsx');
 assert(overlay.includes('aria-modal="true"') && overlay.includes('data-analysis-overlay') &&
-  overlay.includes('Progress animation is illustrative'),
-  'animation must show engaging modal status without inventing server-side completion');
+  overlay.includes('Progress animation is illustrative') &&
+  overlay.includes('data-analysis-step') && overlay.includes('completed') &&
+  overlay.includes('analysis-orbit-leaf') && !overlay.includes('analysis-stage-list'),
+  'overlay must show a leaf and one illustrative stage at a time, with final completion linked to API success');
+assert(styles.includes('.analysis-overlay-content') &&
+  styles.includes('background: transparent') &&
+  styles.includes('backdrop-filter: blur(25px)') &&
+  !styles.includes('.analysis-overlay-card'),
+  'analysis must be full-viewport blurred glass with no visible modal box');
 const routeService = read('../backend/src/services/routes.ts');
 assert(routeService.includes("input.mode === 'walk' ? 'Pedestrian'") &&
   routeService.includes('estimatedBikeMinutes') &&

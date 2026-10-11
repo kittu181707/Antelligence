@@ -458,12 +458,42 @@ try {
     'planner must remain mounted behind the loading overlay');
   assert.equal(await overlay.getAttribute('role'), 'dialog');
   assert.equal(await overlay.getAttribute('aria-modal'), 'true');
-  const firstStage = await page.locator('.analysis-active-step strong').textContent();
-  await page.waitForTimeout(1150);
-  const laterStage = await page.locator('.analysis-active-step strong').textContent();
-  assert(firstStage !== laterStage, 'animated analysis stages must change during a pending request');
-  assert(await page.locator('.analysis-orbit-satellite').count() === 3,
-    'overlay must contain animated route, weather, and environment symbols');
+  assert.equal(await overlay.locator('.analysis-overlay-card').count(), 0,
+    'analysis must not appear inside the old white login-style card');
+  assert.equal(await overlay.locator('.analysis-orbit-leaf').count(), 1,
+    'only the central leaf should appear in the orbit animation');
+  assert.equal(await overlay.locator('.analysis-orbit-circle').count(), 3,
+    'the central leaf should be surrounded by three rotating rings');
+  assert.equal(await overlay.locator('.analysis-orbit-satellite').count(), 0,
+    'no route/weather satellite symbols should surround the leaf');
+  assert.equal(await overlay.locator('[data-analysis-step]').count(), 1,
+    'only one current step should be rendered');
+  const visuals = await overlay.evaluate((element) => {
+    const content = element.querySelector('.analysis-overlay-content');
+    const ring = element.querySelector('.analysis-orbit-circle');
+    const screen = getComputedStyle(element);
+    const contentStyle = getComputedStyle(content);
+    const ringStyle = getComputedStyle(ring);
+    return {
+      blurred: screen.backdropFilter.includes('blur') || screen.webkitBackdropFilter.includes('blur'),
+      panelTransparent: contentStyle.backgroundColor === 'rgba(0, 0, 0, 0)',
+      panelBorder: contentStyle.borderTopWidth,
+      ringAnimation: ringStyle.animationName,
+      viewport: Math.abs(element.getBoundingClientRect().height - window.innerHeight) < 2,
+    };
+  });
+  assert(visuals.blurred && visuals.panelTransparent && visuals.panelBorder === '0px' &&
+    visuals.viewport && visuals.ringAnimation === 'analysis-spin',
+    'full-screen blurred backdrop, transparent center and moving rings required: ' + JSON.stringify(visuals));
+  const firstStage = await overlay.locator('.analysis-single-step strong').textContent();
+  const firstIndex = Number(await overlay.locator('[data-analysis-step]').getAttribute('data-stage-index'));
+  await overlay.locator('[data-analysis-tick]').waitFor({ state: 'visible', timeout: 1700 });
+  assert.equal(await overlay.locator('[data-analysis-step]').count(), 1,
+    'tick must appear in the same step instead of a multi-step list');
+  await page.waitForFunction((previous) => Number(document.querySelector('[data-analysis-step]')?.getAttribute('data-stage-index')) > previous,
+    firstIndex, { timeout: 2500 });
+  const laterStage = await overlay.locator('.analysis-single-step strong').textContent();
+  assert(firstStage !== laterStage, 'the checked step must disappear and next step take its place');
   await page.screenshot({ path: '/tmp/pollution-analysis-overlay.png', fullPage: true });
   await overlay.waitFor({ state: 'detached', timeout: 9000 });
   assert(await page.locator('.itinerary-editor .error-banner').getByText('Temporary routing outage.', { exact: false }).isVisible(),
