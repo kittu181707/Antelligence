@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
 import { Maximize2, Leaf, ShieldCheck } from 'lucide-react';
 import { api } from './api';
 import { BottomNav, type NavTab } from './components/BottomNav';
@@ -25,9 +26,34 @@ const blankAgenda = (location?: Coordinates | null): AgendaPayload => ({ date: l
 type Step = 'landing'|'import'|'manual'|'overview'|'changes'|'final'|'accepted';
 type AgendaMode = 'import' | 'manual';
 const EMPTY_TRIPS: TripAnalysis[] = [];
+const NAV_TABS: NavTab[] = ['today', 'map', 'optimize', 'impact', 'india', 'history', 'settings'];
+const STEPS: Step[] = ['landing', 'import', 'manual', 'overview', 'changes', 'final', 'accepted'];
+type BrowserView = { tab: NavTab; step: Step };
+const DEFAULT_VIEW: BrowserView = { tab: 'today', step: 'landing' };
+const HISTORY_KEY = 'pollutionView';
+
+function browserView(state: unknown): BrowserView | null {
+  if (!state || typeof state !== 'object') return null;
+  const view = (state as Record<string, unknown>)[HISTORY_KEY];
+  if (!view || typeof view !== 'object') return null;
+  const { tab, step } = view as Record<string, unknown>;
+  return NAV_TABS.includes(tab as NavTab) && STEPS.includes(step as Step)
+    ? { tab: tab as NavTab, step: step as Step }
+    : null;
+}
+
+function initialBrowserView(): BrowserView {
+  if (typeof window === 'undefined') return DEFAULT_VIEW;
+  const saved = browserView(window.history.state);
+  if (!saved) return DEFAULT_VIEW;
+  // Full plans are held in session React state, not persisted to history.
+  // Never restore a result-only screen with no analysis after a hard reload.
+  return { tab: saved.tab, step: ['final', 'accepted', 'changes', 'overview'].includes(saved.step) ? 'landing' : saved.step };
+}
+
 
 export default function App() {
-  const [step, setStep] = useState<Step>('landing');
+  const [step, setStep] = useState<Step>(() => initialBrowserView().step);
   const [agendaMode, setAgendaMode] = useState<AgendaMode>('manual');
   const [agenda, setAgenda] = useState<AgendaPayload>(blankAgenda);
   const [journeys, setJourneys] = useState<JourneyInput[]>([]);
@@ -43,7 +69,7 @@ export default function App() {
   const [error, setError] = useState<string>();
   const [whyTrip, setWhyTrip] = useState<TripAnalysis | null>(null);
   const [whyText, setWhyText] = useState('');
-  const [tab, setTab] = useState<NavTab>('today');
+  const [tab, setTab] = useState<NavTab>(() => initialBrowserView().tab);
   const [history, setHistory] = useState<AcceptedPlan[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [isDemo, setIsDemo] = useState(false);
@@ -54,7 +80,60 @@ export default function App() {
   const previousIndiaDay = useRef(localDate());
   const dashboardMainRef = useRef<HTMLElement | null>(null);
   const dashboardPanelRef = useRef<HTMLElement | null>(null);
+  const mapPointerStart = useRef<{ x: number; y: number; id: number } | null>(null);
+  const mapWasDragged = useRef(false);
+
   const plannedJourneys = useMemo(() => editableJourneys(agenda, journeys), [agenda, journeys]);
+
+  // Browser back/forward must restore the currently visible UI (including an
+  // unfinished planner) instead of leaving the app stuck on the same tab.
+  // No user itinerary, private data or API responses are stored in history.
+  useEffect(() => {
+    const onPopState = (event: PopStateEvent) => {
+      const next = browserView(event.state) || DEFAULT_VIEW;
+      setTab(next.tab);
+      setStep((previous) =>
+        ['final', 'accepted', 'changes', 'overview'].includes(next.step) && !analysis ? 'landing' : next.step);
+      setWhyTrip(null);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [analysis]);
+
+  // Seed the first entry once. Never write history in response to popstate:
+  // an automatic push there would erase the user's Forward stack.
+  useLayoutEffect(() => {
+    if (browserView(window.history.state)) return;
+    const state = window.history.state && typeof window.history.state === 'object'
+      ? window.history.state : {};
+    window.history.replaceState({ ...state, [HISTORY_KEY]: { tab, step } }, '', window.location.href);
+  }, []);
+
+  const navigate = (nextTab: NavTab, nextStep: Step) => {
+    const current = browserView(window.history.state);
+    if (current?.tab !== nextTab || current.step !== nextStep) {
+      const state = window.history.state && typeof window.history.state === 'object'
+        ? window.history.state : {};
+      window.history.pushState({ ...state, [HISTORY_KEY]: { tab: nextTab, step: nextStep } },
+        '', window.location.href);
+    }
+    setTab(nextTab);
+    setStep(nextStep);
+  };
+
+  const mapPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    mapWasDragged.current = false;
+    mapPointerStart.current = { x: event.clientX, y: event.clientY, id: event.pointerId };
+  };
+  const mapPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const origin = mapPointerStart.current;
+    if (origin && origin.id === event.pointerId &&
+        Math.hypot(event.clientX - origin.x, event.clientY - origin.y) > 7) {
+      mapWasDragged.current = true;
+    }
+  };
+  const mapPointerUp = () => { mapPointerStart.current = null; };
+
 
   // The planner and results reuse the same column. Reset both scrollports as
   // soon as a new analyzed Today view appears, before it becomes visible.
@@ -181,7 +260,7 @@ export default function App() {
     setAnalysis(null);
     setPreviewPoints([]);
     setAgendaMode(mode);
-    setStep(mode);
+    navigate('today', mode);
     setError(undefined);
   };
 
@@ -206,7 +285,7 @@ export default function App() {
           setWhyText(whyResult.explanation);
         }
       }
-      setStep('landing');
+      navigate('today', 'landing');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load demo day');
     } finally {
@@ -257,10 +336,9 @@ export default function App() {
       await new Promise<void>((resolve) => window.setTimeout(resolve, Math.max(
         ANALYSIS_COMPLETED_HOLD_MS, ANALYSIS_MIN_DISPLAY_MS - (Date.now() - startedAt),
       )));
-      setAnalysis(result); 
+      setAnalysis(result);
       setJourneys(plannedJourneys);
-      setTab('today');
-      setStep('landing'); // Render dashboard
+      navigate('today', 'landing'); // Render dashboard
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Analysis failed');
       setStep(agendaMode);
@@ -277,7 +355,7 @@ export default function App() {
     setBusy(true); setError(undefined);
     try {
       const saved = await api.acceptPlan(userId, analysis.planId);
-      setAccepted(saved); setStep('accepted');
+      setAccepted(saved); navigate('today', 'accepted');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save plan');
     } finally {
@@ -311,15 +389,19 @@ export default function App() {
   useEffect(() => { if (tab === 'history' && userId) void refreshHistory(); }, [tab, userId]);
 
   const onNav = (next: NavTab) => {
-    setTab(next);
-    // Preserve an unfinished itinerary when visiting either Map or Settings.
-    // Do not send users back to the landing page mid-edit.
-    if (next === 'today' && step !== 'manual' && step !== 'import') setStep('landing');
+    // Preserve an unfinished itinerary while visiting Map or Settings.
+    let nextStep = step;
+    if (next === 'today' && step !== 'manual' && step !== 'import') nextStep = 'landing';
     if (next === 'optimize') {
-      if (analysis) setStep('final');
-      else if (agenda.events.length) setStep(agendaMode);
-      else { setAgenda(blankAgenda(liveLocation)); setAgendaMode('manual'); setStep('manual'); }
+      if (analysis) nextStep = 'final';
+      else if (agenda.events.length) nextStep = agendaMode;
+      else {
+        setAgenda(blankAgenda(liveLocation));
+        setAgendaMode('manual');
+        nextStep = 'manual';
+      }
     }
+    navigate(next, nextStep);
   };
 
 
@@ -331,11 +413,11 @@ export default function App() {
   else if (step === 'landing') {
     content = <TodayScreen agenda={agenda} journeys={journeys} analysis={analysis} whyText={whyText} whyTrip={whyTrip} onWhy={openWhy} busy={busy} isDemo={isDemo} liveLocation={liveLocation} onImport={() => startAgenda('import')} onManual={() => startAgenda('manual')} onDemo={loadDemo} onAnalyze={runAnalysis} error={error} />;
   }
-  else if (step === 'import' || step === 'manual') content = <ImportScreen agenda={agenda} setAgenda={setAgenda} mode={step} journeys={plannedJourneys} setJourneys={setJourneys} maxExtra={maxExtra} setMaxExtra={setMaxExtra} onBack={() => setStep('landing')} onAnalyze={runAnalysis} onIcs={importIcs} busy={busy} error={error} liveLocation={liveLocation}/>;
-  else if (step === 'overview' && analysis) content = <OverviewScreen analysis={analysis} onChanges={() => setStep('changes')} onKeep={() => { setAnalysis(null); setStep('landing'); }}/>;
-  else if (step === 'changes' && analysis) content = <ChangesScreen analysis={analysis} onBack={() => setStep('overview')} onWhy={openWhy} onFinal={() => setStep('final')}/>;
-  else if (step === 'final' && analysis) content = <FinalPlanScreen analysis={analysis} onBack={() => setStep('changes')} onAccept={acceptPlan} busy={busy}/>;
-  else if (step === 'accepted' && accepted) content = <AcceptedScreen plan={accepted} onDone={() => { setTab('today'); setStep('landing'); }}/>;
+  else if (step === 'import' || step === 'manual') content = <ImportScreen agenda={agenda} setAgenda={setAgenda} mode={step} journeys={plannedJourneys} setJourneys={setJourneys} maxExtra={maxExtra} setMaxExtra={setMaxExtra} onBack={() => navigate('today', 'landing')} onAnalyze={runAnalysis} onIcs={importIcs} busy={busy} error={error} liveLocation={liveLocation}/>;
+  else if (step === 'overview' && analysis) content = <OverviewScreen analysis={analysis} onChanges={() => navigate('today', 'changes')} onKeep={() => { setAnalysis(null); navigate('today', 'landing'); }}/>;
+  else if (step === 'changes' && analysis) content = <ChangesScreen analysis={analysis} onBack={() => navigate('today', 'overview')} onWhy={openWhy} onFinal={() => navigate('today', 'final')}/>;
+  else if (step === 'final' && analysis) content = <FinalPlanScreen analysis={analysis} onBack={() => navigate('today', 'changes')} onAccept={acceptPlan} busy={busy}/>;
+  else if (step === 'accepted' && accepted) content = <AcceptedScreen plan={accepted} onDone={() => navigate('today', 'landing')}/>;
   else content = <TodayScreen agenda={agenda} journeys={journeys} analysis={analysis} whyText={whyText} whyTrip={whyTrip} onWhy={openWhy} busy={busy} isDemo={isDemo} liveLocation={liveLocation} onImport={() => startAgenda('import')} onManual={() => startAgenda('manual')} onDemo={loadDemo} onAnalyze={runAnalysis} error={error} />;
 
   return (
@@ -405,9 +487,19 @@ export default function App() {
         <aside className="global-map-col" aria-label="AWS route overview">
           <div className="compact-map-card">
             <div className="compact-map-head"><div><span className="welcome-kicker">YOUR ROUTE</span><h2>{isDemo ? 'Demo map' : 'AWS routes'}</h2></div><div className="compact-map-head-actions"><span className="location-indicator">{liveLocation ? 'Location detected' : 'Enable location for live position'}</span><button type="button" className="compact-map-expand" title="Expand map to full page" aria-label="Expand map to full page" onClick={() => onNav('map')}><Maximize2 size={16}/></button></div></div>
-            <div className="compact-map-frame" title="Click map to open full-page view" onClick={(event) => {
-              if (!(event.target as HTMLElement).closest('button, a')) onNav('map');
-            }}><ErrorBoundary label="Live map" compact><Map trips={analysis?.trips ?? EMPTY_TRIPS} liveLocation={liveLocation} isDemo={isDemo} previewPoints={previewPoints} /></ErrorBoundary></div>
+            <div className="compact-map-frame" title="Click map to open full-page view"
+              onPointerDownCapture={mapPointerDown}
+              onPointerMoveCapture={mapPointerMove}
+              onPointerUpCapture={mapPointerUp}
+              onPointerCancelCapture={() => { mapPointerStart.current = null; mapWasDragged.current = true; }}
+              onClick={(event) => {
+                // A drag generates a synthetic click after releasing pointer
+                // capture. That click MUST NOT expand the map.
+                if (mapWasDragged.current) { mapWasDragged.current = false; return; }
+                const target = event.target as HTMLElement;
+                if (target.closest('button, a') || !target.closest('.raster-map-viewport')) return;
+                onNav('map');
+              }}><ErrorBoundary label="Live map" compact><Map trips={analysis?.trips ?? EMPTY_TRIPS} liveLocation={liveLocation} isDemo={isDemo} previewPoints={previewPoints} /></ErrorBoundary></div>
             <p className="compact-map-note">{analysis?.trips.length ? `${analysis.trips.length} journey${analysis.trips.length === 1 ? '' : 's'} mapped · Click stops for details` : previewPoints.length > 1 ? `${previewPoints.length - 1} stop(s) placed · Dashed straight-line preview; Analyze for actual roads.` : 'Your live position appears here. Add stops and analyze to plot your day.'}</p>
           </div>
           {tab === 'today' && step === 'landing' && analysis && (

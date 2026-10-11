@@ -263,6 +263,27 @@ try {
   await page.screenshot({ path: '/tmp/pollution-landing-short-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 1365, height: 768 });
   await page.waitForTimeout(180);
+  // Pointer capture emits a click when a drag ends. The compact map must
+  // PAN without opening the full-page map, even when the mouse is released.
+  const compactFrame = page.locator('.compact-map-frame');
+  const compactRect = await compactFrame.boundingBox();
+  assert(compactRect, 'compact map must have measurable bounds before dragging');
+  const dragStart = { x: compactRect.x + compactRect.width * .47,
+    y: compactRect.y + compactRect.height * .55 };
+  const gpsDot = compactFrame.locator('.raster-you');
+  await gpsDot.waitFor({ state: 'visible', timeout: 10000 });
+  const dotBefore = await gpsDot.boundingBox();
+  await page.mouse.move(dragStart.x, dragStart.y);
+  await page.mouse.down();
+  await page.mouse.move(dragStart.x + 72, dragStart.y - 24, { steps: 7 });
+  await page.mouse.up();
+  await page.waitForTimeout(150);
+  assert.equal(await page.locator('.fullpage-map-screen').count(), 0,
+    'dragging the small map must never open the full-page map');
+  const dotAfter = await gpsDot.boundingBox();
+  assert(dotBefore && dotAfter && Math.abs(dotAfter.x - dotBefore.x) > 30,
+    'dragging should visibly pan the map rather than swallow the gesture');
+
   await page.getByRole('button', { name: 'Expand map to full page' }).click();
   assert(await page.locator('.fullpage-map-screen').isVisible(),
     'the small map header must open full-page route map');
@@ -270,12 +291,47 @@ try {
     'full-page map must identify AWS routing without implying AWS basemap tiles');
   assert(await page.getByRole('button', { name: 'Map', exact: true }).getAttribute('aria-current') === 'page',
     'expanding map must highlight Map tab');
+  await page.goBack();
+  await page.locator('.landing-hero').waitFor({ state: 'visible' });
+  assert.equal(await page.getByRole('button', { name: 'Today', exact: true }).getAttribute('aria-current'), 'page',
+    'browser Back must restore Today after expanding the map');
+  await page.goForward();
+  await page.locator('.fullpage-map-screen').waitFor({ state: 'visible' });
+  assert.equal(await page.getByRole('button', { name: 'Map', exact: true }).getAttribute('aria-current'), 'page',
+    'browser Forward must reopen the full-page map');
   await page.getByRole('button', { name: 'Back to Today' }).click();
   assert(await page.locator('.landing-hero').isVisible(), 'Back to Today should restore original landing');
   await page.locator('.compact-map-frame').click({ position: { x: 30, y: 85 } });
   assert(await page.locator('.fullpage-map-screen').isVisible(),
     'clicking map tile itself must also open the full-page map');
   await page.getByRole('button', { name: 'Back to Today' }).click();
+
+  // Browser history must also handle navigation tabs and the edit flow
+  // without losing the pending itinerary.
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  assert.equal(await page.getByRole('button', { name: 'Settings', exact: true }).getAttribute('aria-current'), 'page');
+  await page.goBack();
+  await page.locator('.landing-hero').waitFor({ state: 'visible' });
+  // Going Back must not create a new history entry and erase Forward.
+  assert.equal(await page.evaluate(() => history.state?.pollutionView?.tab), 'today',
+    'Back must restore the Today history entry');
+  await page.goForward();
+  await page.waitForFunction(() =>
+    document.querySelector('.bottom-nav button[aria-current="page"]')?.textContent?.includes('Settings'),
+    undefined, { timeout: 5000 });
+  assert.equal(await page.evaluate(() => history.state?.pollutionView?.tab), 'settings',
+    'Forward must retain and restore the Settings history entry');
+  assert.equal(await page.getByRole('button', { name: 'Settings', exact: true }).getAttribute('aria-current'), 'page',
+    'browser Forward must restore Settings');
+  await page.getByRole('button', { name: 'Today', exact: true }).click();
+  await page.getByRole('button', { name: 'Enter your day' }).click();
+  await page.locator('.itinerary-editor').waitFor({ state: 'visible' });
+  await page.goBack();
+  await page.locator('.landing-hero').waitFor({ state: 'visible' });
+  await page.goForward();
+  await page.locator('.itinerary-editor').waitFor({ state: 'visible' });
+  await page.locator('.itinerary-editor .back').click();
+  await page.locator('.landing-hero').waitFor({ state: 'visible' });
   await page.screenshot({ path: '/tmp/pollution-landing-desktop.png', fullPage: true });
 
   await page.setViewportSize({ width: 1024, height: 768 });
