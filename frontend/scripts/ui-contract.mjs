@@ -101,7 +101,7 @@ assert(styles.includes('.global-split-layout.planner-layout') &&
 
 assert(!app.includes("step === 'travel'") && !app.includes('TravelScreen') &&
   !app.includes('continueToTravel'), 'intermediate journey-review screen must be removed');
-assert(app.includes('isAnalyzing && <AnalysisScreen/>') &&
+assert(app.includes('isAnalyzing && <AnalysisScreen completed={analysisComplete}/>') &&
   !app.includes("setStep('analysis')") &&
   app.includes('setIsAnalyzing(false)'),
   'live Analyze must run over the current planner and unmount the overlay on success AND failure');
