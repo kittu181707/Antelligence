@@ -147,6 +147,50 @@ async function main() {
   assert(demoExample.trips[0].recommended.source === 'Controlled demo route data');
   assert.equal(demoExample.workflow.dataMode, 'demo');
 
+  // Exercise the production AWS-failure fallback, not just the estimate
+  // formula, without making live AWS calls during CI.
+  const routeInput = {
+    origin: { lat: 16.328441, lon: 80.416747 },
+    destination: { lat: 16.336100, lon: 80.431222 },
+    date: '2026-10-11', departureTime: '08:00',
+    demoMode: false, tripOrdinal: 0,
+  };
+  for (const mode of ['bus', 'metro', 'walk'] as const) {
+    const issued: string[] = [];
+    const fallbackRoutes = await routesForTrip({ ...routeInput, mode }, async (cmd: any) => {
+      issued.push(cmd.TravelMode);
+      if (cmd.TravelMode !== 'Car') {
+        const error = new Error('Unsupported travel mode');
+        error.name = 'ValidationException';
+        throw error;
+      }
+      return { Routes: [{ Summary: { Distance: 3500, Duration: 620 },
+        Legs: [{ Geometry: { LineString: [
+          [routeInput.origin.lon, routeInput.origin.lat],
+          [routeInput.destination.lon, routeInput.destination.lat],
+        ] } }] }] };
+    });
+    assert.deepEqual(issued, [mode === 'walk' ? 'Pedestrian' : 'Transit', 'Car']);
+    assert.equal(fallbackRoutes.length, 1);
+    assert.equal(fallbackRoutes[0].mode, mode);
+    assert(fallbackRoutes[0].travelMinutes > 0);
+    assert.match(fallbackRoutes[0].source, /Planning estimate.*not navigable directions/);
+  }
+  const roadOutage = await routesForTrip({ ...routeInput, mode: 'car' }, async () => ({ Routes: [] }));
+  assert.equal(roadOutage[0].mode, 'car');
+  assert.match(roadOutage[0].source, /straight-line guide/);
+  const transitOutage = await routesForTrip({ ...routeInput, mode: 'bus' }, async () => { throw new Error('offline'); });
+  assert.match(transitOutage[0].source, /straight-line guide.*no verified transit service/);
+  const bikeFromRoad = await routesForTrip({ ...routeInput, mode: 'bike' }, async () => ({
+    Routes: [{ Summary: { Distance: 3500, Duration: 620 },
+      Legs: [{ Geometry: { LineString: [
+        [routeInput.origin.lon, routeInput.origin.lat],
+        [routeInput.destination.lon, routeInput.destination.lat],
+      ] } }] }],
+  }));
+  assert.match(bikeFromRoad[0].source, /not bicycle-verified/);
+  assert.equal(bikeFromRoad[0].mode, 'bike');
+
   // The browser can supply GPS coordinates directly: geocoding must not require AWS for these.
   assert.deepEqual(await geocode('28.613900, 77.209000', false), { lat: 28.6139, lon: 77.209 });
   await assert.rejects(() => geocode('91.0000, 181.0000', false), /out of range/);
