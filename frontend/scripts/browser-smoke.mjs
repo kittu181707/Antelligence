@@ -129,51 +129,53 @@ try {
     assert(errors.length === 0, label + ': uncaught browser exceptions: ' + errors.join('; '));
   };
 
-  // Verify the shared ANTELLIGENCE header fits beside live conditions.
-  // The right-hand weather/AQI panel must stay visible on all screens.
+  // Verify the brand is live, accessible text with a transparent vector emblem.
+  // Preserve the live condition chips and avoid overlap on every viewport.
   const assertCompactHeader = async (label) => {
     const layout = await page.evaluate(() => {
       const header = document.querySelector('.app-topbar');
       const title = document.querySelector('.app-welcome h1');
-      const subtitle = document.querySelector('.app-welcome .ant-brand-copy p');
-      const logo = title?.querySelector('img.ant-brand-wordmark');
+      const wordmark = title?.querySelector('.ant-brand-wordmark');
+      const emblem = document.querySelector('.ant-brand-emblem');
+      const tagline = document.querySelector('.app-welcome .ant-brand-copy p');
       const welcome = document.querySelector('.app-welcome');
       const environment = document.querySelector('.top-environment');
-      if (!header || !title || !subtitle || !logo || !welcome || !environment) return null;
+      if (!header || !title || !wordmark || !emblem || !tagline || !welcome || !environment) return null;
+      const taglineRect = tagline.getBoundingClientRect();
       const titleRect = title.getBoundingClientRect();
-      const subtitleRect = subtitle.getBoundingClientRect();
       const welcomeRect = welcome.getBoundingClientRect();
       const envRect = environment.getBoundingClientRect();
       return {
-        viewport: window.innerWidth,
-        logoWidth: logo.getBoundingClientRect().width,
-        logoHeight: logo.getBoundingClientRect().height,
-        logoLoaded: logo.complete && logo.naturalWidth === 558 && logo.naturalHeight === 177,
-        logoAlt: logo.getAttribute('alt'),
-        sentenceLines: subtitleRect.height / parseFloat(getComputedStyle(subtitle).lineHeight),
+        viewport: innerWidth,
+        wordmark: wordmark.textContent?.trim(),
+        textElement: wordmark.tagName,
+        titleLabel: title.getAttribute('aria-label'),
+        tagline: tagline.textContent?.trim(),
+        taglineOffset: Math.abs(taglineRect.left - titleRect.left),
+        taglineLines: taglineRect.height / parseFloat(getComputedStyle(tagline).lineHeight),
+        emblemLoaded: emblem.complete && emblem.naturalWidth > 0,
+        emblemAlt: emblem.getAttribute('alt'),
+        emblemSrc: emblem.getAttribute('src'),
         headerHeight: header.getBoundingClientRect().height,
-        horizontalOverflow: header.scrollWidth > header.clientWidth + 2,
-        overlaps: window.innerWidth > 760
-          ? welcomeRect.right > envRect.left + 2
+        overflow: header.scrollWidth > header.clientWidth + 2,
+        overlap: innerWidth > 760 ? welcomeRect.right > envRect.left + 2
           : welcomeRect.bottom > envRect.top + 2,
         chips: environment.querySelectorAll('.env-chip').length,
-        tagline: subtitle.textContent?.trim(),
-        oldIcon: !!document.querySelector('.ant-brand-symbol, .ant-brand-copy svg'),
       };
     });
-    assert(layout && layout.chips >= 5,
-      label + ': test requires populated live environment chips: ' + JSON.stringify(layout));
-    assert.equal(layout.logoAlt, 'Antelligence', label + ': logo image must retain accessible name');
-    assert.equal(layout.tagline, 'Intelligence through coordination', label + ': missing brand message');
-    assert(layout.logoLoaded && layout.logoWidth >= 175 && layout.logoWidth <= 210 &&
-      layout.logoHeight >= 55 && layout.logoHeight <= 70 &&
-      !layout.oldIcon && layout.sentenceLines <= 1.08,
-      label + ': exact image should fit compactly without the old ant or text logo: ' + JSON.stringify(layout));
-    assert(!layout.horizontalOverflow && !layout.overlaps,
-      label + ': live chips must not overlap or overflow the greeting: ' + JSON.stringify(layout));
+    assert(layout && layout.chips >= 5, label + ': live environmental chips missing: ' + JSON.stringify(layout));
+    assert.equal(layout.wordmark, 'ntelligence', label + ': original lettering missing');
+    assert.equal(layout.textElement, 'SPAN', label + ': lettering must be rendered as text');
+    assert.equal(layout.titleLabel, 'Antelligence', label + ': accessible name missing');
+    assert.equal(layout.tagline, 'Intelligence through coordination', label + ': tagline missing');
+    assert(layout.emblemLoaded && layout.emblemAlt === '' &&
+      layout.emblemSrc === '/antelligence-emblem.svg' &&
+      layout.taglineOffset <= 4 && layout.taglineLines <= 1.08,
+      label + ': emblem/tagline alignment incorrect: ' + JSON.stringify(layout));
+    assert(!layout.overflow && !layout.overlap,
+      label + ': brand must not overlap weather/AQI chips: ' + JSON.stringify(layout));
     if (layout.viewport >= 1024) {
-      assert(layout.headerHeight <= 108,
-        label + ': header wastes too much vertical space: ' + JSON.stringify(layout));
+      assert(layout.headerHeight <= 112, label + ': topbar must remain compact');
     }
   };
 
