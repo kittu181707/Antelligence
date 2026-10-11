@@ -3,6 +3,7 @@
 **Event:** WeMakeDevs Environmental Hacks, Air track, October 8–11, 2026  
 **Repository:** https://github.com/kittu181707/pollution  
 **Production UI:** https://main.d22y9q2ay7ukew.amplifyapp.com/  
+**Demo video:** https://youtu.be/K9sxgWoBlK0  
 **Scope:** Code-path forensics, targeted vulnerability/correctness fixes, stress-test additions, AWS deploy observability and verifiable demo workflow. Not a claim that every live geography and provider has been tested.
 
 ## 1. What the judges actually require
@@ -61,23 +62,3 @@ Production **shared journey map is OpenStreetMap DOM raster**, not Amazon Locati
 | CloudWatch | Monitor p95 latency / errors from real production traffic |
 
 **Important:** Headless Chromium uses mocked environmental/tile/demo responses. It does not establish real CPCB station coverage, actual road route quality in six cities, or production load performance with twelve events. Those must be described as distinct checks.
-
-## 5. Known limitations requiring an independent follow-up
-
-- **Sync API Gateway timeout:** The backend calls Express Step Functions synchronously. A multi-journey live request may exceed the practical REST gateway window (~29 seconds). A CloudWatch alarm flags p95 over 25 seconds. Converting to an asynchronous job API requires measured production latency/cost and a new status endpoint. Do not describe the 12-stop editor as fully stress-proven in production.
-- **CPCB/CAAQMS station feed:** India's official real-time air-quality dataset exists via data.gov.in, but API key/usage terms and live access have not been validated. We have not connected it or misrepresented forecast grid samples as physical monitoring stations.
-- **Geographic parity:** Guntur, Delhi, Mumbai, Bengaluru, Hyderabad and Chennai need *separate* live geocoding, supported routing mode, provider-data freshness and feasibility tests. Guntur and Delhi current-hour environmental probes are not evidence of six-city routing coverage.
-- **Scientific limits:** Exposure scores are model-based relative rankings, not personal inhaled dosage, clinical health outcomes, or an independent measurement of local air quality. Accepted plans are intentions, not proven trips taken.
-- **Impact history:** Personal history fetch is capped to recent 20; labels disclose that limit.
-- **Costs:** Extra CloudWatch dashboard metrics and alarms create some AWS usage; monitor/remove the dashboard after the event if not useful.
-- **Reliability:** Third-party tiles, Open-Meteo, Tomorrow.io and Amazon Location can fail independently; errors should be visible instead of fabricated fallback readings.
-
-## 6. Three-minute demonstration plan
-
-1. **0:00–0:25** — Problem: high-UV and PM2.5 exposure during a student's normal day; show home conditions with **US AQI/model provenance**.
-2. **0:25–1:10** — Enter timed Guntur stops (gym, college/office, lunch). Show fixed commitments and current GPS map.
-3. **1:10–1:55** — Optimize; compare original and recommended *feasible* journeys, time changes, modeled exposure, and estimated CO₂e separately. Use actual live routes only after they have been confirmed.
-4. **1:55–2:30** — Controlled demo fallback if necessary: accept once, reopen History, show estimated Impact (demo excluded). Explain that the control scenario is labeled demo.
-5. **2:30–3:00** — Show AWS Console: deployed Amplify app, Step Functions workflow, Lambda functions, DynamoDB persistence and CloudWatch dashboard. If Bedrock is not configured, describe it as optional, not active.
-
-**Submission checklist:** public repository, ≤3-minute YouTube video tested signed out, concise problem/build/AWS writeup, disclosure of AI assistance, original work after event opened. Do not manufacture CPCB measurements, emissions outcomes, or live-provider results.

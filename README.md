@@ -8,7 +8,7 @@ Air quality doesn't stop mattering when somebody has a class at 9, an errand at 
 
 **WeMakeDevs Environmental Hacks 2026 · Air track** — [Hackathon](https://www.wemakedevs.org/aws/env) · [Rules](https://www.wemakedevs.org/aws/env/rules) · [Architecture details](docs/ARCHITECTURE.md)
 
-[**Open the deployed app**](https://main.d22y9q2ay7ukew.amplifyapp.com/) · [**Follow the demo runbook**](docs/DEMO.md) · [**Read validation and limitations**](docs/HACKATHON_VALIDATION.md)
+[**Open the deployed app**](https://main.d22y9q2ay7ukew.amplifyapp.com/) · [**Watch the real demo**](https://youtu.be/K9sxgWoBlK0)
 
 > **The question we're building around:** “I still need to get through my day. Which parts of the journey can I change without being late?”
 
@@ -77,19 +77,9 @@ This is a **relative decision aid**, not a personal inhaled-dose calculation. Th
 
 Environmental forecasts come from **Tomorrow.io** when configured and otherwise **Open-Meteo**. Open-Meteo air-quality data is modeled on the **US EPA AQI** scale; it is **not CPCB station data**. The app shows source and timing so those numbers aren't mistaken for ground-level measurements.
 
-## The three-minute walkthrough
+## Demo video
 
-The [demo runbook](docs/DEMO.md) is the shortest way to understand the product. For the hackathon video, we'd show the decision before showing the infrastructure:
-
-| Time | What the judge should see |
-| --- | --- |
-| **0:00–0:25** | The problem: fixed commitments, changeable journeys. Show a labeled current environmental reading. |
-| **0:25–1:05** | Enter or import a day. Keep appointment times fixed and choose an extra-travel allowance. |
-| **1:05–1:55** | Run analysis. Compare original and recommended journeys, exposure index, time trade-offs, and why a choice was made. |
-| **1:55–2:25** | Accept a plan and show history. If using the controlled scenario, keep its **demo** label visible. |
-| **2:25–2:55** | Show the actual deployed AWS flow: API / Step Functions execution, Lambda, DynamoDB, and CloudWatch. |
-
-The official rules require a **public repository, a YouTube demo under three minutes, and a short project writeup**. The video must show the AWS use; mentioning it in text isn't enough. [Official submission rules](https://www.wemakedevs.org/aws/env/rules).
+[Watch Antelligence in action on YouTube](https://youtu.be/K9sxgWoBlK0).
 
 ## Run it locally
 
