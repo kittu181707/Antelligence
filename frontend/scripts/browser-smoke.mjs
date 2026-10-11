@@ -129,16 +129,17 @@ try {
     assert(errors.length === 0, label + ': uncaught browser exceptions: ' + errors.join('; '));
   };
 
-  // Verify that updated live chips never force "today" into a third line.
-  // The same topbar is mounted on landing, planner, Map, Settings and results.
+  // Verify the shared ANTELLIGENCE header fits beside live conditions.
+  // The right-hand weather/AQI panel must stay visible on all screens.
   const assertCompactHeader = async (label) => {
     const layout = await page.evaluate(() => {
       const header = document.querySelector('.app-topbar');
       const title = document.querySelector('.app-welcome h1');
-      const subtitle = title?.querySelector('span');
+      const subtitle = document.querySelector('.app-welcome .ant-brand-copy p');
+      const ant = document.querySelector('.app-welcome .ant-brand-symbol svg');
       const welcome = document.querySelector('.app-welcome');
       const environment = document.querySelector('.top-environment');
-      if (!header || !title || !subtitle || !welcome || !environment) return null;
+      if (!header || !title || !subtitle || !ant || !welcome || !environment) return null;
       const titleRect = title.getBoundingClientRect();
       const subtitleRect = subtitle.getBoundingClientRect();
       const welcomeRect = welcome.getBoundingClientRect();
@@ -153,12 +154,17 @@ try {
           ? welcomeRect.right > envRect.left + 2
           : welcomeRect.bottom > envRect.top + 2,
         chips: environment.querySelectorAll('.env-chip').length,
+        logo: title.textContent?.trim(),
+        tagline: subtitle.textContent?.trim(),
+        antVisible: ant.getBoundingClientRect().width >= 25,
       };
     });
     assert(layout && layout.chips >= 5,
       label + ': test requires populated live environment chips: ' + JSON.stringify(layout));
-    assert(layout.headingLines <= 2.08 && layout.sentenceLines <= 1.08,
-      label + ': shared greeting must use at most two lines with the full second sentence intact: ' + JSON.stringify(layout));
+    assert.equal(layout.logo, 'ANTELLIGENCE', label + ': incorrect product name');
+    assert.equal(layout.tagline, 'Intelligence through coordination', label + ': missing brand message');
+    assert(layout.antVisible && layout.headingLines <= 1.08 && layout.sentenceLines <= 1.08,
+      label + ': ant symbol, name and tagline must stay compact and legible: ' + JSON.stringify(layout));
     assert(!layout.horizontalOverflow && !layout.overlaps,
       label + ': live chips must not overlap or overflow the greeting: ' + JSON.stringify(layout));
     if (layout.viewport >= 1024) {
