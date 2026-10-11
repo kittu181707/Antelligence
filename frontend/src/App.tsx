@@ -100,17 +100,26 @@ export default function App() {
     return () => window.removeEventListener('popstate', onPopState);
   }, [analysis]);
 
-  // Commit history before paint so an immediate browser Back after a tab
-  // click cannot race the passive effect and lose the just-opened entry.
+  // Seed the first entry once. Never write history in response to popstate:
+  // an automatic push there would erase the user's Forward stack.
   useLayoutEffect(() => {
-    const current = browserView(window.history.state);
-    if (current?.tab === tab && current.step === step) return;
-    const currentState = window.history.state && typeof window.history.state === 'object'
+    if (browserView(window.history.state)) return;
+    const state = window.history.state && typeof window.history.state === 'object'
       ? window.history.state : {};
-    const next = { ...currentState, [HISTORY_KEY]: { tab, step } };
-    if (!current) window.history.replaceState(next, '', window.location.href);
-    else window.history.pushState(next, '', window.location.href);
-  }, [tab, step]);
+    window.history.replaceState({ ...state, [HISTORY_KEY]: { tab, step } }, '', window.location.href);
+  }, []);
+
+  const navigate = (nextTab: NavTab, nextStep: Step) => {
+    const current = browserView(window.history.state);
+    if (current?.tab !== nextTab || current.step !== nextStep) {
+      const state = window.history.state && typeof window.history.state === 'object'
+        ? window.history.state : {};
+      window.history.pushState({ ...state, [HISTORY_KEY]: { tab: nextTab, step: nextStep } },
+        '', window.location.href);
+    }
+    setTab(nextTab);
+    setStep(nextStep);
+  };
 
   const mapPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     mapWasDragged.current = false;
@@ -251,7 +260,7 @@ export default function App() {
     setAnalysis(null);
     setPreviewPoints([]);
     setAgendaMode(mode);
-    setStep(mode);
+    navigate('today', mode);
     setError(undefined);
   };
 
@@ -276,7 +285,7 @@ export default function App() {
           setWhyText(whyResult.explanation);
         }
       }
-      setStep('landing');
+      navigate('today', 'landing');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load demo day');
     } finally {
@@ -327,10 +336,9 @@ export default function App() {
       await new Promise<void>((resolve) => window.setTimeout(resolve, Math.max(
         ANALYSIS_COMPLETED_HOLD_MS, ANALYSIS_MIN_DISPLAY_MS - (Date.now() - startedAt),
       )));
-      setAnalysis(result); 
+      setAnalysis(result);
       setJourneys(plannedJourneys);
-      setTab('today');
-      setStep('landing'); // Render dashboard
+      navigate('today', 'landing'); // Render dashboard
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Analysis failed');
       setStep(agendaMode);
@@ -347,7 +355,7 @@ export default function App() {
     setBusy(true); setError(undefined);
     try {
       const saved = await api.acceptPlan(userId, analysis.planId);
-      setAccepted(saved); setStep('accepted');
+      setAccepted(saved); navigate('today', 'accepted');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save plan');
     } finally {
@@ -381,15 +389,19 @@ export default function App() {
   useEffect(() => { if (tab === 'history' && userId) void refreshHistory(); }, [tab, userId]);
 
   const onNav = (next: NavTab) => {
-    setTab(next);
-    // Preserve an unfinished itinerary when visiting either Map or Settings.
-    // Do not send users back to the landing page mid-edit.
-    if (next === 'today' && step !== 'manual' && step !== 'import') setStep('landing');
+    // Preserve an unfinished itinerary while visiting Map or Settings.
+    let nextStep = step;
+    if (next === 'today' && step !== 'manual' && step !== 'import') nextStep = 'landing';
     if (next === 'optimize') {
-      if (analysis) setStep('final');
-      else if (agenda.events.length) setStep(agendaMode);
-      else { setAgenda(blankAgenda(liveLocation)); setAgendaMode('manual'); setStep('manual'); }
+      if (analysis) nextStep = 'final';
+      else if (agenda.events.length) nextStep = agendaMode;
+      else {
+        setAgenda(blankAgenda(liveLocation));
+        setAgendaMode('manual');
+        nextStep = 'manual';
+      }
     }
+    navigate(next, nextStep);
   };
 
 
@@ -401,11 +413,11 @@ export default function App() {
   else if (step === 'landing') {
     content = <TodayScreen agenda={agenda} journeys={journeys} analysis={analysis} whyText={whyText} whyTrip={whyTrip} onWhy={openWhy} busy={busy} isDemo={isDemo} liveLocation={liveLocation} onImport={() => startAgenda('import')} onManual={() => startAgenda('manual')} onDemo={loadDemo} onAnalyze={runAnalysis} error={error} />;
   }
-  else if (step === 'import' || step === 'manual') content = <ImportScreen agenda={agenda} setAgenda={setAgenda} mode={step} journeys={plannedJourneys} setJourneys={setJourneys} maxExtra={maxExtra} setMaxExtra={setMaxExtra} onBack={() => setStep('landing')} onAnalyze={runAnalysis} onIcs={importIcs} busy={busy} error={error} liveLocation={liveLocation}/>;
-  else if (step === 'overview' && analysis) content = <OverviewScreen analysis={analysis} onChanges={() => setStep('changes')} onKeep={() => { setAnalysis(null); setStep('landing'); }}/>;
-  else if (step === 'changes' && analysis) content = <ChangesScreen analysis={analysis} onBack={() => setStep('overview')} onWhy={openWhy} onFinal={() => setStep('final')}/>;
-  else if (step === 'final' && analysis) content = <FinalPlanScreen analysis={analysis} onBack={() => setStep('changes')} onAccept={acceptPlan} busy={busy}/>;
-  else if (step === 'accepted' && accepted) content = <AcceptedScreen plan={accepted} onDone={() => { setTab('today'); setStep('landing'); }}/>;
+  else if (step === 'import' || step === 'manual') content = <ImportScreen agenda={agenda} setAgenda={setAgenda} mode={step} journeys={plannedJourneys} setJourneys={setJourneys} maxExtra={maxExtra} setMaxExtra={setMaxExtra} onBack={() => navigate('today', 'landing')} onAnalyze={runAnalysis} onIcs={importIcs} busy={busy} error={error} liveLocation={liveLocation}/>;
+  else if (step === 'overview' && analysis) content = <OverviewScreen analysis={analysis} onChanges={() => navigate('today', 'changes')} onKeep={() => { setAnalysis(null); navigate('today', 'landing'); }}/>;
+  else if (step === 'changes' && analysis) content = <ChangesScreen analysis={analysis} onBack={() => navigate('today', 'overview')} onWhy={openWhy} onFinal={() => navigate('today', 'final')}/>;
+  else if (step === 'final' && analysis) content = <FinalPlanScreen analysis={analysis} onBack={() => navigate('today', 'changes')} onAccept={acceptPlan} busy={busy}/>;
+  else if (step === 'accepted' && accepted) content = <AcceptedScreen plan={accepted} onDone={() => navigate('today', 'landing')}/>;
   else content = <TodayScreen agenda={agenda} journeys={journeys} analysis={analysis} whyText={whyText} whyTrip={whyTrip} onWhy={openWhy} busy={busy} isDemo={isDemo} liveLocation={liveLocation} onImport={() => startAgenda('import')} onManual={() => startAgenda('manual')} onDemo={loadDemo} onAnalyze={runAnalysis} error={error} />;
 
   return (
