@@ -310,6 +310,10 @@ try {
     'clicking map tile itself must also open the full-page map');
   await page.getByRole('button', { name: 'Back to Today' }).click();
 
+  // Start the history regression from a clean document, not a long
+  // accumulated map test stack. This still exercises real Back/Forward.
+  await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+  await page.locator('.landing-hero').waitFor({ state: 'visible' });
   // Browser history must also handle navigation tabs and the edit flow
   // without losing the pending itinerary.
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
