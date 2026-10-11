@@ -322,8 +322,10 @@ try {
 
   // Browser history must also handle navigation tabs and the edit flow
   // without losing the pending itinerary.
-  // Earlier map navigations can leave pending same-document history traversals.
-  // Synchronize the Today route before testing a distinct Settings history entry.
+  // Start this separate history scenario from a settled Today document,
+  // rather than racing history traversal with the prior map interactions.
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.locator('.landing-hero').waitFor({ state: 'visible' });
   await page.waitForFunction(() => location.hash === '#/today/landing' &&
     history.state?.pollutionView?.tab === 'today', undefined, { timeout: 5000 });
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
@@ -331,7 +333,7 @@ try {
   assert.equal(await page.evaluate(() => location.hash), '#/settings/landing',
     'Settings must have its own browser-history address');
   const beforeSettingsBack = await page.evaluate(() => ({ state: history.state?.pollutionView, length: history.length }));
-  await page.goBack({ waitUntil: 'domcontentloaded' });
+  await page.evaluate(() => window.history.back());
   await page.waitForTimeout(450);
   const afterSettingsBack = await page.evaluate(() => ({
     state: history.state?.pollutionView,
@@ -346,7 +348,7 @@ try {
     'Back must restore the distinct Today history URL');
   assert.equal(await page.evaluate(() => history.state?.pollutionView?.tab), 'today',
     'Back must restore the Today history entry');
-  await page.goForward({ waitUntil: 'domcontentloaded' });
+  await page.evaluate(() => window.history.forward());
   await page.waitForTimeout(150);
   const afterSettingsForward = await page.evaluate(() => ({
     state: history.state?.pollutionView,
