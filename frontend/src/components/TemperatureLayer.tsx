@@ -163,7 +163,11 @@ export function TemperatureLayer({ active, points, width, height }: {
     </div>
     {data && <div className="weather-temperature-legend" aria-label={`Modeled temperature range ${Math.round(low!)} to ${Math.round(high!)} degrees Celsius`}>
       <div className="weather-temperature-legend-title"><span>Cooler</span><strong>Heat intensity · °C</strong><span>Hotter</span></div>
-      <div className="weather-temperature-scale"/>
+      <div className="weather-temperature-scale" style={{ background:
+        'linear-gradient(90deg, ' +
+        [low!, (low! + center!) / 2, center!, (center! + high!) / 2, high!]
+          .map((temp) => 'rgb(' + heatColor(temp).join(',') + ')').join(', ') +
+        ')' }}/>
       <div className="weather-temperature-legend-values"><span>{Math.round(low!)}°</span><span>{Math.round(center!)}°</span><span>{Math.round(high!)}°</span></div>
       <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo model · interpolated, not street-level</a>
     </div>}
