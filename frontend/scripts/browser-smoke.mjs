@@ -322,12 +322,16 @@ try {
 
   // Browser history must also handle navigation tabs and the edit flow
   // without losing the pending itinerary.
+  // Earlier map navigations can leave pending same-document history traversals.
+  // Synchronize the Today route before testing a distinct Settings history entry.
+  await page.waitForFunction(() => location.hash === '#/today/landing' &&
+    history.state?.pollutionView?.tab === 'today', undefined, { timeout: 5000 });
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   assert.equal(await page.getByRole('button', { name: 'Settings', exact: true }).getAttribute('aria-current'), 'page');
   assert.equal(await page.evaluate(() => location.hash), '#/settings/landing',
     'Settings must have its own browser-history address');
   const beforeSettingsBack = await page.evaluate(() => ({ state: history.state?.pollutionView, length: history.length }));
-  await page.evaluate(() => window.history.back());
+  await page.goBack({ waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(450);
   const afterSettingsBack = await page.evaluate(() => ({
     state: history.state?.pollutionView,
