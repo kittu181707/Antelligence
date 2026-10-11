@@ -156,6 +156,9 @@ export function TodayScreen({
           )}
           {analysis && m && (
             <div className="dashboard-bottom">
+              {m.appointmentsChanged > 0 && <div className="editor-warning" role="alert">
+                {m.appointmentsChanged} appointment{m.appointmentsChanged === 1 ? '' : 's'} at risk of late arrival based on estimated travel times. Review the final plan before relying on this schedule.
+              </div>}
               <div className="dashboard-card analysis-card">
                 <h3><ShieldCheck size={17} aria-hidden="true"/> AWS route analysis</h3>
                 <section className="exposure-hero">
@@ -174,7 +177,7 @@ export function TodayScreen({
 
               <div className="dashboard-card comparison-card">
                 <h3><Route size={17} aria-hidden="true"/> AWS route options</h3>
-                <p className="results-options-count">{analysis.workflow.routesEvaluated} feasible options scored for {analysis.trips.length} {analysis.trips.length === 1 ? 'journey' : 'journeys'}</p>
+                <p className="results-options-count">{analysis.workflow.routesEvaluated} route options scored for {analysis.trips.length} {analysis.trips.length === 1 ? 'journey' : 'journeys'}</p>
                 {analysis.changes.length > 0 ? (
                   <div className="change-list" style={{ margin: 0 }}>
                     {analysis.changes.slice(0, 1).map((trip) => (
@@ -204,7 +207,7 @@ export function TodayScreen({
                   <div className="results-empty-state">
                     <span className="results-empty-symbol"><CheckCircle2 size={22} aria-hidden="true"/></span>
                     <strong>No supported improvement found</strong>
-                    <p>We checked the feasible routes and departure times. No option meaningfully reduced modeled exposure within your schedule. You can try allowing extra travel time or updating your stops.</p>
+                    <p>{m.appointmentsChanged > 0 ? 'The requested journey may arrive after the scheduled stop. Leave earlier or update the appointment before traveling.' : 'We compared the available routes and departure times. No option meaningfully reduced modeled exposure within your schedule. You can try allowing extra travel time or updating your stops.'}</p>
                     {!isDemo && <button type="button" className="secondary results-example-cta"
                       onClick={onDemo} disabled={busy}>
                       <PlayCircle size={15} aria-hidden="true"/>
