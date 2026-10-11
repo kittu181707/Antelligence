@@ -25,9 +25,34 @@ const blankAgenda = (location?: Coordinates | null): AgendaPayload => ({ date: l
 type Step = 'landing'|'import'|'manual'|'overview'|'changes'|'final'|'accepted';
 type AgendaMode = 'import' | 'manual';
 const EMPTY_TRIPS: TripAnalysis[] = [];
+const NAV_TABS: NavTab[] = ['today', 'map', 'optimize', 'impact', 'india', 'history', 'settings'];
+const STEPS: Step[] = ['landing', 'import', 'manual', 'overview', 'changes', 'final', 'accepted'];
+type BrowserView = { tab: NavTab; step: Step };
+const DEFAULT_VIEW: BrowserView = { tab: 'today', step: 'landing' };
+const HISTORY_KEY = 'pollutionView';
+
+function browserView(state: unknown): BrowserView | null {
+  if (!state || typeof state !== 'object') return null;
+  const view = (state as Record<string, unknown>)[HISTORY_KEY];
+  if (!view || typeof view !== 'object') return null;
+  const { tab, step } = view as Record<string, unknown>;
+  return NAV_TABS.includes(tab as NavTab) && STEPS.includes(step as Step)
+    ? { tab: tab as NavTab, step: step as Step }
+    : null;
+}
+
+function initialBrowserView(): BrowserView {
+  if (typeof window === 'undefined') return DEFAULT_VIEW;
+  const saved = browserView(window.history.state);
+  if (!saved) return DEFAULT_VIEW;
+  // Full plans are held in session React state, not persisted to history.
+  // Never restore a result-only screen with no analysis after a hard reload.
+  return { tab: saved.tab, step: ['final', 'accepted', 'changes', 'overview'].includes(saved.step) ? 'landing' : saved.step };
+}
+
 
 export default function App() {
-  const [step, setStep] = useState<Step>('landing');
+  const [step, setStep] = useState<Step>(() => initialBrowserView().step);
   const [agendaMode, setAgendaMode] = useState<AgendaMode>('manual');
   const [agenda, setAgenda] = useState<AgendaPayload>(blankAgenda);
   const [journeys, setJourneys] = useState<JourneyInput[]>([]);
@@ -43,7 +68,7 @@ export default function App() {
   const [error, setError] = useState<string>();
   const [whyTrip, setWhyTrip] = useState<TripAnalysis | null>(null);
   const [whyText, setWhyText] = useState('');
-  const [tab, setTab] = useState<NavTab>('today');
+  const [tab, setTab] = useState<NavTab>(() => initialBrowserView().tab);
   const [history, setHistory] = useState<AcceptedPlan[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [isDemo, setIsDemo] = useState(false);
@@ -54,7 +79,49 @@ export default function App() {
   const previousIndiaDay = useRef(localDate());
   const dashboardMainRef = useRef<HTMLElement | null>(null);
   const dashboardPanelRef = useRef<HTMLElement | null>(null);
+  const mapPointerStart = useRef<{ x: number; y: number; id: number } | null>(null);
+  const mapWasDragged = useRef(false);
+
   const plannedJourneys = useMemo(() => editableJourneys(agenda, journeys), [agenda, journeys]);
+
+  // Browser back/forward must restore the currently visible UI (including an
+  // unfinished planner) instead of leaving the app stuck on the same tab.
+  // No user itinerary, private data or API responses are stored in history.
+  useEffect(() => {
+    const onPopState = (event: PopStateEvent) => {
+      const next = browserView(event.state) || DEFAULT_VIEW;
+      setTab(next.tab);
+      setStep((previous) =>
+        ['final', 'accepted', 'changes', 'overview'].includes(next.step) && !analysis ? 'landing' : next.step);
+      setWhyTrip(null);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [analysis]);
+
+  useEffect(() => {
+    const current = browserView(window.history.state);
+    if (current?.tab === tab && current.step === step) return;
+    const currentState = window.history.state && typeof window.history.state === 'object'
+      ? window.history.state : {};
+    const next = { ...currentState, [HISTORY_KEY]: { tab, step } };
+    if (!current) window.history.replaceState(next, '', window.location.href);
+    else window.history.pushState(next, '', window.location.href);
+  }, [tab, step]);
+
+  const mapPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    mapWasDragged.current = false;
+    mapPointerStart.current = { x: event.clientX, y: event.clientY, id: event.pointerId };
+  };
+  const mapPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const origin = mapPointerStart.current;
+    if (origin && origin.id === event.pointerId &&
+        Math.hypot(event.clientX - origin.x, event.clientY - origin.y) > 7) {
+      mapWasDragged.current = true;
+    }
+  };
+  const mapPointerUp = () => { mapPointerStart.current = null; };
+
 
   // The planner and results reuse the same column. Reset both scrollports as
   // soon as a new analyzed Today view appears, before it becomes visible.
@@ -388,9 +455,19 @@ export default function App() {
         <aside className="global-map-col" aria-label="AWS route overview">
           <div className="compact-map-card">
             <div className="compact-map-head"><div><span className="welcome-kicker">YOUR ROUTE</span><h2>{isDemo ? 'Demo map' : 'AWS routes'}</h2></div><div className="compact-map-head-actions"><span className="location-indicator">{liveLocation ? 'Location detected' : 'Enable location for live position'}</span><button type="button" className="compact-map-expand" title="Expand map to full page" aria-label="Expand map to full page" onClick={() => onNav('map')}><Maximize2 size={16}/></button></div></div>
-            <div className="compact-map-frame" title="Click map to open full-page view" onClick={(event) => {
-              if (!(event.target as HTMLElement).closest('button, a')) onNav('map');
-            }}><ErrorBoundary label="Live map" compact><Map trips={analysis?.trips ?? EMPTY_TRIPS} liveLocation={liveLocation} isDemo={isDemo} previewPoints={previewPoints} /></ErrorBoundary></div>
+            <div className="compact-map-frame" title="Click map to open full-page view"
+              onPointerDownCapture={mapPointerDown}
+              onPointerMoveCapture={mapPointerMove}
+              onPointerUpCapture={mapPointerUp}
+              onPointerCancelCapture={() => { mapPointerStart.current = null; mapWasDragged.current = true; }}
+              onClick={(event) => {
+                // A drag generates a synthetic click after releasing pointer
+                // capture. That click MUST NOT expand the map.
+                if (mapWasDragged.current) { mapWasDragged.current = false; return; }
+                const target = event.target as HTMLElement;
+                if (target.closest('button, a') || !target.closest('.raster-map-viewport')) return;
+                onNav('map');
+              }}><ErrorBoundary label="Live map" compact><Map trips={analysis?.trips ?? EMPTY_TRIPS} liveLocation={liveLocation} isDemo={isDemo} previewPoints={previewPoints} /></ErrorBoundary></div>
             <p className="compact-map-note">{analysis?.trips.length ? `${analysis.trips.length} journey${analysis.trips.length === 1 ? '' : 's'} mapped · Click stops for details` : previewPoints.length > 1 ? `${previewPoints.length - 1} stop(s) placed · Dashed straight-line preview; Analyze for actual roads.` : 'Your live position appears here. Add stops and analyze to plot your day.'}</p>
           </div>
           {tab === 'today' && step === 'landing' && analysis && (
