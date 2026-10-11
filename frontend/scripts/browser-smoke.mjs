@@ -310,55 +310,62 @@ try {
     'clicking map tile itself must also open the full-page map');
   await page.getByRole('button', { name: 'Back to Today' }).click();
 
+  // Test browser Back/Forward in a fresh tab: map gesture tests above have
+  // already created a complex navigation stack in the main tab.
+  const historyPage = await context.newPage();
+  historyPage.on('pageerror', (error) => errors.push(String(error)));
+  await historyPage.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+  await historyPage.locator('.landing-hero').waitFor({ state: 'visible' });
   // Browser history must also handle navigation tabs and the edit flow
   // without losing the pending itinerary.
-  await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  assert.equal(await page.getByRole('button', { name: 'Settings', exact: true }).getAttribute('aria-current'), 'page');
-  assert.equal(await page.evaluate(() => location.hash), '#/view/settings/landing',
+  await historyPage.getByRole('button', { name: 'Settings', exact: true }).click();
+  assert.equal(await historyPage.getByRole('button', { name: 'Settings', exact: true }).getAttribute('aria-current'), 'page');
+  assert.equal(await historyPage.evaluate(() => location.hash), '#/view/settings/landing',
     'Settings must have its own URL entry for browser Back/Forward');
-  const beforeSettingsBack = await page.evaluate(() => ({ state: history.state?.pollutionView, length: history.length }));
-  await page.evaluate(() => window.history.back());
-  await page.waitForTimeout(450);
-  const afterSettingsBack = await page.evaluate(() => ({
+  const beforeSettingsBack = await historyPage.evaluate(() => ({ state: history.state?.pollutionView, length: history.length }));
+  await historyPage.evaluate(() => window.history.back());
+  await historyPage.waitForTimeout(450);
+  const afterSettingsBack = await historyPage.evaluate(() => ({
     state: history.state?.pollutionView,
     length: history.length,
     active: document.querySelector('.bottom-nav [aria-current="page"]')?.textContent,
     hasLandingHero: !!document.querySelector('.landing-hero'),
   }));
   console.log('Settings Back diagnostics:', JSON.stringify({ beforeSettingsBack, afterSettingsBack }));
-  await page.locator('.landing-hero').waitFor({ state: 'visible', timeout: 3500 });
+  await historyPage.locator('.landing-hero').waitFor({ state: 'visible', timeout: 3500 });
   // Going Back must not create a new history entry and erase Forward.
-  assert.equal(await page.evaluate(() => history.state?.pollutionView?.tab), 'today',
+  assert.equal(await historyPage.evaluate(() => history.state?.pollutionView?.tab), 'today',
     'Back must restore the Today history entry');
-  assert.equal(await page.evaluate(() => location.hash), '',
+  assert.equal(await historyPage.evaluate(() => location.hash), '',
     'Back must restore the original root URL rather than lose history state');
-  await page.evaluate(() => window.history.forward());
-  await page.waitForTimeout(500);
-  const afterSettingsForward = await page.evaluate(() => ({
+  await historyPage.evaluate(() => window.history.forward());
+  await historyPage.waitForTimeout(500);
+  const afterSettingsForward = await historyPage.evaluate(() => ({
     state: history.state?.pollutionView,
     active: document.querySelector('.bottom-nav [aria-current="page"]')?.textContent,
     hasLandingHero: !!document.querySelector('.landing-hero'),
     readyState: document.readyState,
   }));
   console.log('Settings Forward diagnostics:', JSON.stringify(afterSettingsForward));
-  await page.waitForFunction(() =>
+  await historyPage.waitForFunction(() =>
     document.querySelector('.bottom-nav button[aria-current="page"]')?.textContent?.includes('Settings'),
     undefined, { timeout: 3500 });
-  assert.equal(await page.evaluate(() => history.state?.pollutionView?.tab), 'settings',
+  assert.equal(await historyPage.evaluate(() => history.state?.pollutionView?.tab), 'settings',
     'Forward must retain and restore the Settings history entry');
-  assert.equal(await page.evaluate(() => location.hash), '#/view/settings/landing',
+  assert.equal(await historyPage.evaluate(() => location.hash), '#/view/settings/landing',
     'Forward must restore the Settings URL entry');
-  assert.equal(await page.getByRole('button', { name: 'Settings', exact: true }).getAttribute('aria-current'), 'page',
+  assert.equal(await historyPage.getByRole('button', { name: 'Settings', exact: true }).getAttribute('aria-current'), 'page',
     'browser Forward must restore Settings');
-  await page.getByRole('button', { name: 'Today', exact: true }).click();
-  await page.getByRole('button', { name: 'Enter your day' }).click();
-  await page.locator('.itinerary-editor').waitFor({ state: 'visible' });
-  await page.evaluate(() => window.history.back());
-  await page.locator('.landing-hero').waitFor({ state: 'visible' });
-  await page.evaluate(() => window.history.forward());
-  await page.locator('.itinerary-editor').waitFor({ state: 'visible' });
-  await page.locator('.itinerary-editor .back').click();
-  await page.locator('.landing-hero').waitFor({ state: 'visible' });
+  await historyPage.getByRole('button', { name: 'Today', exact: true }).click();
+  await historyPage.getByRole('button', { name: 'Enter your day' }).click();
+  await historyPage.locator('.itinerary-editor').waitFor({ state: 'visible' });
+  await historyPage.evaluate(() => window.history.back());
+  await historyPage.locator('.landing-hero').waitFor({ state: 'visible' });
+  await historyPage.evaluate(() => window.history.forward());
+  await historyPage.locator('.itinerary-editor').waitFor({ state: 'visible' });
+  await historyPage.locator('.itinerary-editor .back').click();
+  await historyPage.locator('.landing-hero').waitFor({ state: 'visible' });
+  await historyPage.close();
   await page.screenshot({ path: '/tmp/pollution-landing-desktop.png', fullPage: true });
 
   await page.setViewportSize({ width: 1024, height: 768 });
