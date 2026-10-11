@@ -346,8 +346,8 @@ try {
     'Back must restore the distinct Today history URL');
   assert.equal(await page.evaluate(() => history.state?.pollutionView?.tab), 'today',
     'Back must restore the Today history entry');
-  await page.evaluate(() => window.history.forward());
-  await page.waitForTimeout(500);
+  await page.goForward({ waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(150);
   const afterSettingsForward = await page.evaluate(() => ({
     state: history.state?.pollutionView,
     active: document.querySelector('.bottom-nav [aria-current="page"]')?.textContent,
