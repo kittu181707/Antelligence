@@ -31,6 +31,19 @@ const STEPS: Step[] = ['landing', 'import', 'manual', 'overview', 'changes', 'fi
 type BrowserView = { tab: NavTab; step: Step };
 const DEFAULT_VIEW: BrowserView = { tab: 'today', step: 'landing' };
 const HISTORY_KEY = 'pollutionView';
+const VIEW_HASH_PREFIX = '#/view/';
+
+function hashBrowserView(): BrowserView | null {
+  if (typeof window === 'undefined' || !window.location.hash.startsWith(VIEW_HASH_PREFIX)) return null;
+  const [tab, step] = window.location.hash.slice(VIEW_HASH_PREFIX.length).split('/');
+  return NAV_TABS.includes(tab as NavTab) && STEPS.includes(step as Step)
+    ? { tab: tab as NavTab, step: step as Step }
+    : null;
+}
+
+function browserViewUrl(tab: NavTab, step: Step): string {
+  return `${window.location.pathname}${window.location.search}${VIEW_HASH_PREFIX}${tab}/${step}`;
+}
 
 function browserView(state: unknown): BrowserView | null {
   if (!state || typeof state !== 'object') return null;
@@ -44,7 +57,7 @@ function browserView(state: unknown): BrowserView | null {
 
 function initialBrowserView(): BrowserView {
   if (typeof window === 'undefined') return DEFAULT_VIEW;
-  const saved = browserView(window.history.state);
+  const saved = browserView(window.history.state) || hashBrowserView();
   if (!saved) return DEFAULT_VIEW;
   // Full plans are held in session React state, not persisted to history.
   // Never restore a result-only screen with no analysis after a hard reload.
@@ -90,7 +103,7 @@ export default function App() {
   // No user itinerary, private data or API responses are stored in history.
   useEffect(() => {
     const onPopState = (event: PopStateEvent) => {
-      const next = browserView(event.state) || DEFAULT_VIEW;
+      const next = browserView(event.state) || hashBrowserView() || DEFAULT_VIEW;
       setTab(next.tab);
       setStep((previous) =>
         ['final', 'accepted', 'changes', 'overview'].includes(next.step) && !analysis ? 'landing' : next.step);
@@ -114,8 +127,11 @@ export default function App() {
     if (current?.tab !== nextTab || current.step !== nextStep) {
       const state = window.history.state && typeof window.history.state === 'object'
         ? window.history.state : {};
-      window.history.pushState({ ...state, [HISTORY_KEY]: { tab: nextTab, step: nextStep } },
-        '', window.location.href);
+      // Distinct same-origin view URLs make Back/Forward browser traversal
+    // reliable even after a full document visit to the identical root URL.
+    // Only tab/step appear in the hash; no itinerary or private data.
+    window.history.pushState({ ...state, [HISTORY_KEY]: { tab: nextTab, step: nextStep } },
+        '', browserViewUrl(nextTab, nextStep));
     }
     setTab(nextTab);
     setStep(nextStep);
