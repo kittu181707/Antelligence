@@ -60,8 +60,9 @@ export function optimizeCandidateSets(input: OptimizeSetsInput): DayAnalysis {
   let selected = best.selected;
   let optimizedRaw = sum(selected, 'modeledExposure');
 
-  // Avoid noisy recommendations that barely move the primary metric.
-  if (originalRaw > 0 && (originalRaw - optimizedRaw) / originalRaw < 0.01) {
+  // Do not invent improvements. A sub-0.75% whole-day gain is within
+  // modeling noise; clearer alternatives can still be shown as comparisons.
+  if (originalRaw > 0 && (originalRaw - optimizedRaw) / originalRaw < 0.0075) {
     selected = originals;
     optimizedRaw = originalRaw;
   }
@@ -148,6 +149,9 @@ function explain(original: RouteCandidate, recommended: RouteCandidate, origin: 
     `${delta >= 0 ? '+' : ''}${delta} travel min`,
   ];
   if (recommended.shiftMinutes) parts.push(`${recommended.shiftMinutes > 0 ? '+' : ''}${recommended.shiftMinutes} min departure shift`);
+  if (recommended.source.startsWith('Planning estimate')) {
+    parts.push('planning estimate only; this is not a verified navigable route or transit service');
+  }
   return `${recommended.label}: ${parts.join(' · ')}.`;
 }
 
