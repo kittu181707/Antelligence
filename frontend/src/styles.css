@@ -109,6 +109,7 @@ button {
   scroll-behavior: smooth;
   scrollbar-width: thin;
   scrollbar-color: var(--gold-dark) transparent;
+  padding-bottom: 80px;
 }
 
 .main-content::-webkit-scrollbar {
@@ -1463,7 +1464,7 @@ button {
 
 .india-preview-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 16px;
   margin-bottom: 24px;
 }

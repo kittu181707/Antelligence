@@ -32,6 +32,7 @@ export const SUPPORTED_CITIES = [
 
 interface HeroProps {
   onOptimizeClick: () => void;
+  onExploreInsights?: () => void;
   onImportClick: () => void;
   onManualClick: () => void;
   onDemoClick: () => void;
@@ -39,11 +40,12 @@ interface HeroProps {
   isDemo: boolean;
   liveLocation?: Coordinates | null;
   selectedCity: string;
-  onSelectCity: (city: typeof SUPPORTED_CITIES[0]) => void;
+  onSelectCity: (city: { name: string; query: string; coords?: Coordinates; desc?: string }) => void;
 }
 
 export function AtmosphericHero({
   onOptimizeClick,
+  onExploreInsights,
   onImportClick,
   onManualClick,
   onDemoClick,
@@ -54,6 +56,7 @@ export function AtmosphericHero({
   onSelectCity,
 }: HeroProps) {
   const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
+  const isGpsActive = selectedCity === 'Current Location';
 
   return (
     <section className="renaissance-hero" id="hero-section">
@@ -81,6 +84,16 @@ export function AtmosphericHero({
           <span>Optimize My Day</span>
           <ArrowRight size={18} />
         </button>
+
+        {onExploreInsights && (
+          <button 
+            className="secondary renaissance-btn-secondary hero-insights-btn"
+            onClick={onExploreInsights}
+          >
+            <Compass size={16} className="gold-accent" />
+            <span>Explore Environmental Insights</span>
+          </button>
+        )}
 
         <button 
           className={`secondary renaissance-btn-secondary ${isDemo ? 'active-demo' : ''}`}
@@ -121,6 +134,21 @@ export function AtmosphericHero({
           {cityDropdownOpen && (
             <div className="location-dropdown-menu">
               <div className="dropdown-heading">Supported Environmental Observatories</div>
+              {liveLocation && (
+                <button
+                  className={`dropdown-item ${isGpsActive ? 'selected' : ''}`}
+                  onClick={() => {
+                    onSelectCity({ name: 'Current Location', query: 'Current Location', coords: liveLocation, desc: 'Live browser geolocation coordinates' });
+                    setCityDropdownOpen(false);
+                  }}
+                >
+                  <div className="item-title-row">
+                    <strong>Current Location (GPS)</strong>
+                    {isGpsActive && <span className="item-check">✓</span>}
+                  </div>
+                  <small className="item-desc">{liveLocation.lat.toFixed(2)}° N, {liveLocation.lon.toFixed(2)}° E</small>
+                </button>
+              )}
               {SUPPORTED_CITIES.map((c) => (
                 <button
                   key={c.name}
@@ -155,8 +183,8 @@ export function AtmosphericHero({
         </div>
         <div className="ribbon-content">
           <LiveEnvironmentSnapshot 
-            homeLocation={selectedCity} 
-            liveLocation={liveLocation} 
+            homeLocation={isGpsActive ? '' : selectedCity} 
+            liveLocation={isGpsActive ? liveLocation : null} 
             isDemo={isDemo} 
             chipMode={true} 
           />

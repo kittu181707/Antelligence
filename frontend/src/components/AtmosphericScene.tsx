@@ -9,6 +9,11 @@ interface AtmosphericSceneProps {
 export function AtmosphericScene({ scrollProgress = 0, interactive = true }: AtmosphericSceneProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const [hasWebGL, setHasWebGL] = useState(true);
+  const scrollRef = useRef(scrollProgress);
+
+  useEffect(() => {
+    scrollRef.current = scrollProgress;
+  }, [scrollProgress]);
 
   useEffect(() => {
     const container = mountRef.current;
@@ -178,7 +183,10 @@ export function AtmosphericScene({ scrollProgress = 0, interactive = true }: Atm
     planetGroup.add(cloudsMesh);
 
     // 2. Suspended Particulate Matter (PM2.5 & PM10 dynamic flow field)
-    const particleCount = 2200;
+    const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const isMobile = width < 640;
+    const isTablet = width < 1024;
+    const particleCount = prefersReducedMotion ? 400 : isMobile ? 650 : isTablet ? 1200 : 2200;
     const particleGeo = new THREE.BufferGeometry();
     const positions = new Float32Array(particleCount * 3);
     const colors = new Float32Array(particleCount * 3);
@@ -199,7 +207,7 @@ export function AtmosphericScene({ scrollProgress = 0, interactive = true }: Atm
       angles[i] = angle;
       radii[i] = radius;
       heights[i] = height;
-      speeds[i] = 0.001 + Math.random() * 0.003;
+      speeds[i] = prefersReducedMotion ? 0.0003 : 0.001 + Math.random() * 0.003;
 
       positions[i * 3] = Math.cos(angle) * radius;
       positions[i * 3 + 1] = height;
@@ -321,7 +329,7 @@ export function AtmosphericScene({ scrollProgress = 0, interactive = true }: Atm
 
       // Scroll-Driven Renaissance Choreography:
       // Map scrollProgress (0 to 1) to camera and scene positions
-      const p = Math.max(0, Math.min(1, scrollProgress));
+      const p = Math.max(0, Math.min(1, scrollRef.current));
 
       // Target camera trajectory:
       // Stage 0 (0.00 - 0.20): Hero & Atmosphere (high vantage point, majestic horizon)

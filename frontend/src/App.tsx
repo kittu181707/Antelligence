@@ -267,6 +267,9 @@ export default function App() {
         onFinal={() => setStep('final')}
         onAccept={acceptPlan}
         onNavigateTab={(t) => onNav(t as NavTab)}
+        userId={userId}
+        history={history}
+        onLocationChange={(loc) => setAgenda(prev => ({ ...prev, homeLocation: loc }))}
       />
     );
   }
@@ -311,6 +314,9 @@ export default function App() {
         onFinal={() => setStep('final')}
         onAccept={acceptPlan}
         onNavigateTab={(t) => onNav(t as NavTab)}
+        userId={userId}
+        history={history}
+        onLocationChange={(loc) => setAgenda(prev => ({ ...prev, homeLocation: loc }))}
       />
     );
   }
