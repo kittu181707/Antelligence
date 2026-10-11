@@ -100,7 +100,9 @@ export default function App() {
     return () => window.removeEventListener('popstate', onPopState);
   }, [analysis]);
 
-  useEffect(() => {
+  // Commit history before paint so an immediate browser Back after a tab
+  // click cannot race the passive effect and lose the just-opened entry.
+  useLayoutEffect(() => {
     const current = browserView(window.history.state);
     if (current?.tab === tab && current.step === step) return;
     const currentState = window.history.state && typeof window.history.state === 'object'
