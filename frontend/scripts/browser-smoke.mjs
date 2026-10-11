@@ -738,6 +738,12 @@ try {
     'direct analysis must never display an intermediate review page');
   assert(!await page.locator('.analysis-overlay').count(),
     'results must dismiss the overlay and display the results without loading-page navigation');
+  assert(await page.locator('.final-plan-screen').isVisible(),
+    'successful analysis should open the final plan, not an intermediate screen');
+  assert((await page.locator('.final-plan-screen').textContent() || '').includes('Appointments at risk (estimated)'),
+    'final page must identify appointment feasibility');
+  await page.getByRole('button', { name: "Back to today's overview" }).click();
+  await page.locator('.results-layout').waitFor({ state: 'visible' });
   assert.equal(await page.locator('.results-layout .global-panel-col').evaluate((panel) => panel.scrollTop), 0,
     'analyzed Today must open at the top even when the planner was scrolled');
   assert.equal(await page.locator('.results-layout').evaluate((main) => main.scrollTop), 0,
@@ -827,6 +833,11 @@ try {
   await page.waitForTimeout(150);
   await page.screenshot({ path: '/tmp/pollution-demo-desktop.png', fullPage: true });
 
+  // Clicking the brand from an analyzed result must start a NEW landing.
+  await page.getByRole('button', { name: 'Antelligence — return to start' }).click();
+  await page.locator('.landing-hero').waitFor({ state: 'visible' });
+  assert.equal(await page.evaluate(() => location.hash), '#/today/landing');
+  assert.equal(await page.locator('.results-impact-panel').count(), 0, 'brand reset must clear prior analysis');
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(500);
   await check('mobile layout', true);
