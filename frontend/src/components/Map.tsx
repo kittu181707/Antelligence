@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LocateFixed, Minus, Plus, ExternalLink, Route, ThermometerSun } from 'lucide-react';
+import { LocateFixed, Minus, Plus, ExternalLink, Route, ThermometerSun, Layers3, Wind, CloudSun, Sun, Activity, CarFront } from 'lucide-react';
 import type { CSSProperties, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react';
 import type { Coordinates, TripAnalysis } from '../types';
 import './Map.css';
 import { TemperatureLayer } from './TemperatureLayer';
+import { AirQualityLayer, WeatherInsightLayer, TrafficLayer, ExposureLayer } from './MapDataLayers';
 
 /**
  * A real raster map that uses standard DOM images instead of WebGL.
@@ -175,12 +176,22 @@ export function Map({ trips, liveLocation, isDemo = false, previewPoints = [] }:
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hasTile, setHasTile] = useState(false);
   const [mapNote, setMapNote] = useState('');
-  const [mapLayer, setMapLayer] = useState<'temperature' | 'routes'>('temperature');
+  const [mapLayer, setMapLayer] = useState<'temperature' | 'routes' | 'air' | 'traffic' | 'weather' | 'uv' | 'exposure'>('temperature');
+  const [layersOpen, setLayersOpen] = useState(false);
   const analyzedPoints = useMemo(() => allPoints(trips), [trips]);
   const previewCoords = useMemo(() => previewPoints.map((stop) => stop.point).filter(valid), [previewPoints]);
   const points = analyzedPoints.length ? analyzedPoints : previewCoords;
   const stops = useMemo(() => routeStops(trips), [trips]);
   const mapTiles = useMemo(() => tilesInView(view, extent), [view, extent]);
+  const projectPoint = useCallback((point: Coordinates) => project(point, view, extent), [view, extent]);
+  const insightPoints = useMemo(() => {
+    const p = mercator(view.center, view.zoom);
+    const pos = [.17, .50, .83];
+    return pos.flatMap((fy) => pos.map((fx) => ({
+      ...fromPixels(p.x + extent.width * (fx - .5), p.y + extent.height * (fy - .5), view.zoom),
+      x: extent.width * fx, y: extent.height * fy,
+    })));
+  }, [view, extent]);
   const samplePoints = useMemo(() => {
     const p = mercator(view.center, view.zoom);
     // Exactly 9 model samples, following the current viewport. Their
@@ -277,6 +288,11 @@ export function Map({ trips, liveLocation, isDemo = false, previewPoints = [] }:
       {mapTiles.map((tile) => <TileImage key={tile.id} tile={tile} onLoaded={tileLoaded}/>)}
       <TemperatureLayer active={mapLayer === 'temperature'} points={samplePoints}
         width={extent.width} height={extent.height}/>
+      <AirQualityLayer active={mapLayer === 'air'} points={insightPoints}/>
+      <WeatherInsightLayer active={mapLayer === 'weather' || mapLayer === 'uv'}
+        kind={mapLayer === 'uv' ? 'uv' : 'weather'} points={insightPoints}/>
+      <ExposureLayer active={mapLayer === 'exposure'} trips={trips} projectPoint={projectPoint} isDemo={isDemo}/>
+      <TrafficLayer active={mapLayer === 'traffic'} trips={trips}/>
       <svg className="raster-route-overlay" width={extent.width} height={extent.height} viewBox={'0 0 ' + extent.width + ' ' + extent.height} aria-hidden="true">
         {trips.length === 0 && previewCoords.length > 1 && <path d={routePath(previewCoords, view, extent)} className="raster-route-preview"/>}
         {trips.map((trip) => <g key={trip.tripId}>
@@ -308,16 +324,40 @@ export function Map({ trips, liveLocation, isDemo = false, previewPoints = [] }:
         <ThermometerSun size={15} aria-hidden="true"/> Temperature
       </button>
       <button type="button" className={mapLayer === 'routes' ? 'selected' : ''}
-        aria-pressed={mapLayer === 'routes'} onClick={() => setMapLayer('routes')}>
+        aria-pressed={mapLayer === 'routes'} onClick={() => { setMapLayer('routes'); setLayersOpen(false); }}>
         <Route size={15} aria-hidden="true"/> Routes
       </button>
+      <button type="button" className={layersOpen || !['temperature','routes'].includes(mapLayer) ? 'selected' : ''}
+        aria-expanded={layersOpen} aria-controls="map-layer-options" aria-label="Choose map layer"
+        onClick={() => setLayersOpen(v => !v)}><Layers3 size={15} aria-hidden="true"/> Layers{!['temperature','routes'].includes(mapLayer) ? ' · '+({
+          air: 'AQI', traffic: 'Traffic', weather: 'Weather', uv: 'UV', exposure: 'Exposure'
+        } as Record<string,string>)[mapLayer] : ''}</button>
     </div>
+    {layersOpen && <div className="map-layer-options" id="map-layer-options" role="group" aria-label="Environmental map layers">
+      {([
+        ['air', 'Air quality', Wind],
+        ['traffic', 'Traffic', CarFront],
+        ['weather', 'Weather', CloudSun],
+        ['uv', 'UV index', Sun],
+        ['exposure', 'Personal exposure', Activity],
+      ] as const).map(([id, label, Icon]) =>
+        <button key={id} type="button" aria-pressed={mapLayer === id}
+          onClick={() => { setMapLayer(id); setLayersOpen(false); }}>
+          <Icon size={16} aria-hidden="true"/><span>{label}</span>
+          <small>{id === 'air' ? 'Model samples' : id === 'traffic' ? 'Route context' :
+            id === 'weather' || id === 'uv' ? 'Forecast' : 'After analysis'}</small>
+        </button>)}
+    </div>}
     <div className="raster-map-controls">
       <button type="button" aria-label="Zoom in" onClick={() => zoomTo(view.zoom + 1)}><Plus size={16}/></button>
       <button type="button" aria-label="Zoom out" onClick={() => zoomTo(view.zoom - 1)}><Minus size={16}/></button>
       <button type="button" aria-label="Find my location" onClick={locate}><LocateFixed size={16}/></button>
     </div>
-    <div className="raster-map-badge with-switch">{isDemo ? 'Demo · OSM' : hasEstimatedTrips ? 'Estimated route · not navigation' : trips.length ? 'AWS routes' : previewPoints.length ? 'AWS places' : 'OSM map'}</div>
+    <div className="raster-map-badge with-switch">{mapLayer === 'air' ? 'AQI · modeled grid' :
+      mapLayer === 'uv' ? 'UV · forecast' : mapLayer === 'weather' ? 'Weather · model' :
+      mapLayer === 'traffic' ? 'Congestion not connected' : mapLayer === 'exposure' ? 'Exposure · estimate' :
+      isDemo ? 'Demo · OSM' : hasEstimatedTrips ? 'Estimated route · not navigation' :
+      trips.length ? 'AWS routes' : previewPoints.length ? 'AWS places' : 'OSM map'}</div>
     {previewSelected && <div className="raster-stop-detail" role="status"><button type="button" aria-label="Close stop details" onClick={() => setSelectedId(null)}>×</button><strong>{previewSelected.label}</strong><span>Amazon Location found this place. Straight-line preview only; AWS routes appear after Analyze.</span></div>}
     {selected && <div className="raster-stop-detail" role="status">
       <button type="button" aria-label="Close stop details" onClick={() => setSelectedId(null)}>×</button>

@@ -179,3 +179,100 @@
   .weather-temperature-readout small { display: none; }
   .weather-temperature-eyebrow { font-size: 7px; }
 }
+
+
+/* Map intelligence layers: actual modeled samples, not invented citywide
+   observations or artificially colored traffic roads. */
+.raster-layer-switch { overflow: auto; scrollbar-width: none; box-sizing: border-box; }
+.raster-layer-switch::-webkit-scrollbar { display: none; }
+.map-layer-options {
+  position: absolute; top: 49px; left: 8px; z-index: 15;
+  width: min(248px, calc(100% - 59px));
+  padding: 5px; border-radius: 14px;
+  border: 1px solid #c6dfd3;
+  background: #fbfffd;
+  box-shadow: 0 16px 35px #08281c3a;
+  max-height: min(290px, calc(100% - 57px));
+  overflow-y: auto;
+}
+.map-layer-options button {
+  display: grid; grid-template-columns: 20px 1fr auto; gap: 7px;
+  align-items: center; width: 100%; text-align: left;
+  padding: 9px 8px; border: 0; border-radius: 9px;
+  background: transparent; font: 700 11px/1.15 system-ui;
+  color: #174433; cursor: pointer;
+}
+.map-layer-options button:hover, .map-layer-options button[aria-pressed="true"] { background: #def7e9; }
+.map-layer-options button svg { color: #0e9f75; }
+.map-layer-options button small { color: #648171; font-size: 9px; font-weight: 500; }
+.map-layer-options button:focus-visible { outline: 2px solid #059669; }
+.insight-sample, .insight-exposure-pin {
+  position: absolute; z-index: 5; transform: translate(-50%,-50%);
+  border: 2px solid #fff; box-shadow: 0 4px 14px #16282065;
+  color: #fff; cursor: pointer;
+}
+.insight-sample { min-width: 36px; min-height: 36px; border-radius: 13px;
+  padding: 4px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.insight-sample span { font: 800 8px system-ui; letter-spacing: .04em; }
+.insight-sample strong { font: 800 13px system-ui; font-variant-numeric: tabular-nums; }
+.insight-exposure-pin { width: 31px; height: 31px; border-radius: 50%; font: 800 11px system-ui; }
+.insight-sample:hover, .insight-exposure-pin:hover { outline: 2px solid #163c2c; }
+.insight-legend, .insight-weather-card, .insight-model-notice,
+.insight-traffic-card, .insight-exposure-card {
+  position: absolute; z-index: 6;
+  border: 1px solid #dcebe3;
+  background: #ffffffef;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 7px 25px #172c2233;
+  border-radius: 12px;
+  color: #244838;
+  padding: 9px 11px;
+  font: 500 10px/1.45 system-ui;
+  display: flex; flex-direction: column; gap: 5px;
+  max-width: min(265px, calc(100% - 18px));
+  overflow-wrap: anywhere;
+}
+.insight-weather-card, .insight-model-notice, .insight-traffic-card, .insight-exposure-card {
+  top: 82px; left: 9px;
+}
+.insight-model-notice { top: 80px; }
+.insight-legend { bottom: 27px; right: 8px; width: 248px; gap: 4px; }
+.insight-legend > strong, .insight-weather-card > strong, .insight-traffic-card > strong,
+.insight-model-notice > strong, .insight-exposure-card > strong { font-size: 11px; color: #0d6146; }
+.insight-aqi-scale { display:flex; height: 10px; width:100%; gap:1px; overflow:hidden; border-radius: 5px; }
+.insight-aqi-scale i { flex: 1; display:block; }
+.insight-legend small, .insight-weather-card small, .insight-exposure-card small { font-size: 9px; color:#60766b; }
+.insight-weather-card b, .insight-exposure-card b { color: #047857; }
+.insight-traffic-card { max-height: min(270px, calc(100% - 109px)); overflow-y:auto; width: min(290px, calc(100% - 15px)); }
+.insight-traffic-card > div { border-bottom: 1px solid #e4f0e9; display:flex; justify-content:space-between; gap:12px; }
+.insight-traffic-card p, .insight-exposure-card p { margin: 2px 0 0; font-size: 10px; line-height: 1.5; }
+.insight-traffic-card p b { color: #9a3412; }
+.insight-detail {
+  position:absolute; z-index:16; top: min(45%, 180px); left: 9px;
+  width: min(260px, calc(100% - 18px));
+  padding: 11px 27px 10px 11px; display:flex; flex-direction:column; gap:6px;
+  background:#fcfffd; color:#183d2e; border:1px solid #bbdec8;
+  border-radius: 13px; box-shadow:0 12px 25px #102b1d40;
+  font:500 11px/1.4 system-ui;
+}
+.insight-detail strong { font-size: 12px; }
+.insight-detail small { color:#63776a; }
+.insight-detail button {
+  position:absolute; top:4px; right:5px; border:0; border-radius:5px;
+  padding:2px 6px; background:#e9f7ec; color:#14503a; font-size:16px; cursor:pointer;
+}
+@container (max-height: 190px) {
+  .insight-legend, .insight-weather-card small, .insight-exposure-card small { display:none; }
+  .insight-sample { min-height: 29px; min-width: 29px; padding: 2px 4px; border-radius: 9px; }
+  .insight-sample span { font-size:7px; } .insight-sample strong { font-size:10px; }
+  .insight-weather-card, .insight-exposure-card, .insight-traffic-card,
+  .insight-model-notice { top: 47px; left:8px; max-width: 180px; padding:6px; font-size:9px; max-height: calc(100% - 65px); overflow:auto; }
+  .insight-weather-card > strong, .insight-traffic-card > strong { font-size:10px; }
+  .map-layer-options { max-height: calc(100% - 54px); }
+}
+
+/* Information cards must never steal map drags or cover tappable AQI/UV
+   samples; only actual buttons and opened sample-details accept pointers. */
+.insight-legend, .insight-weather-card, .insight-model-notice,
+.insight-traffic-card, .insight-exposure-card { pointer-events: none; }
+.insight-detail { pointer-events: auto; }

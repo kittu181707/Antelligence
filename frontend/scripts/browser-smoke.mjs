@@ -65,7 +65,25 @@ try {
     const url = new URL(route.request().url());
     const locations = (url.searchParams.get('latitude') || '').split(',').length;
     const readings = Array.from({ length: locations }, (_, i) => ({
-      current: { temperature_2m: 26 + i * .75 },
+      current: {
+        time: '2026-10-11T11:00', temperature_2m: 26 + i * .75,
+        apparent_temperature: 27 + i * .75, relative_humidity_2m: 63,
+        wind_speed_10m: 9, wind_direction_10m: 110,
+      },
+      hourly: {
+        time: ['2026-10-11T11:00'], uv_index: [5 + i * .2],
+        precipitation_probability: [25],
+      },
+    }));
+    await route.fulfill({ status: 200, contentType: 'application/json',
+      body: JSON.stringify(readings) });
+  });
+  await context.route('https://air-quality-api.open-meteo.com/**', async (route) => {
+    const url = new URL(route.request().url());
+    const locations = (url.searchParams.get('latitude') || '').split(',').length;
+    const readings = Array.from({ length: locations }, (_, i) => ({
+      current: { time: '2026-10-11T11:00', us_aqi: 55 + i * 5,
+        pm2_5: 18 + i, pm10: 33 + i },
     }));
     await route.fulfill({ status: 200, contentType: 'application/json',
       body: JSON.stringify(readings) });
@@ -204,6 +222,37 @@ try {
     'Routes display must remove heat overlay without losing the underlying map');
   assert.equal(await page.locator('[data-map-engine="dom-raster"]').count(), 1,
     'weather switch must preserve the working map engine');
+  await page.locator('.raster-layer-switch').getByRole('button', { name: 'Temperature' }).click();
+  await page.waitForSelector('[data-weather-heatmap="ready"]', { timeout: 12000 });
+
+  // New layers show environmental evidence, not decorative pollution gradients.
+  const chooseLayer = async (name) => {
+    await page.getByRole('button', { name: 'Choose map layer' }).click();
+    await page.getByRole('group', { name: 'Environmental map layers' }).getByRole('button', { name }).click();
+  };
+  await chooseLayer(/Air quality/);
+  await page.waitForSelector('.insight-air-marker', { timeout: 13000 });
+  assert.equal(await page.locator('.insight-air-marker').count(), 9, 'AQI must use 9 real model samples, not a fake observed heatmap');
+  await page.locator('.insight-air-marker').nth(4).click();
+  assert((await page.locator('.insight-detail').textContent() || '').includes('PM2.5'),
+    'AQI sample click must disclose pollutant levels and model provenance');
+  await page.getByRole('button', { name: 'Close air quality details' }).click();
+  await chooseLayer(/Weather/);
+  await page.locator('.insight-weather-card').waitFor({ state: 'visible', timeout: 13000 });
+  assert((await page.locator('.insight-weather-card').textContent() || '').includes('Wind'),
+    'Weather needs actual modeled humidity, wind and feels-like data');
+  await chooseLayer(/UV index/);
+  await page.waitForSelector('.insight-uv-marker', { timeout: 13000 });
+  assert.equal(await page.locator('.insight-uv-marker').count(), 9, 'UV must have its own sample-marker layer');
+  await chooseLayer(/Traffic/);
+  assert((await page.locator('.insight-traffic-card').textContent() || '').includes('Live road congestion unavailable'),
+    'Traffic must not claim citywide road congestion without a verified traffic tile feed');
+  await chooseLayer(/Personal exposure/);
+  assert((await page.locator('.insight-exposure-card').textContent() || '').includes('Analyze your journeys'),
+    'Personal exposure must require an analyzed route, not invent a pollution map');
+  await page.locator('.raster-layer-switch').getByRole('button', { name: 'Routes' }).click();
+  assert.equal(await page.locator('[data-map-engine="dom-raster"]').count(), 1,
+    'new overlays must preserve the original interactive map');
   await page.locator('.raster-layer-switch').getByRole('button', { name: 'Temperature' }).click();
   await page.waitForSelector('[data-weather-heatmap="ready"]', { timeout: 12000 });
   // Judge-facing homepage: wider map on the RIGHT without increasing its height.
