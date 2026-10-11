@@ -342,8 +342,25 @@ export default function App() {
     <div className="app-container">
       <header className="app-topbar">
         <div className="app-welcome">
-          <span className="welcome-kicker">YOUR DAILY ENVIRONMENTAL COMPANION</span>
-          <h1>Good morning. <span>Here's your environmental plan for today.</span></h1>
+          <div className="ant-brand">
+            <span className="ant-brand-symbol" aria-hidden="true">
+              <svg viewBox="0 0 64 64" focusable="false">
+                <g fill="none" stroke="#65489f" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M40 24 39 13 34 8 M46 25 53 14"/>
+                  <path d="M23 31 12 24 6 26 M23 37 11 39 6 47 M29 39 23 48 22 56"/>
+                  <path d="M38 35 49 39 54 48 M39 29 49 25 56 29 M35 39 37 50 44 55"/>
+                </g>
+                <ellipse cx="15" cy="34" rx="10" ry="12" fill="#8667bd"/>
+                <ellipse cx="29" cy="33" rx="7" ry="8" fill="#7859ad"/>
+                <circle cx="44" cy="31" r="9" fill="#604595"/>
+                <circle cx="48" cy="28" r="1.8" fill="#fbf6ff"/>
+              </svg>
+            </span>
+            <div className="ant-brand-copy">
+              <h1>ANTELLIGENCE</h1>
+              <p>Intelligence through coordination</p>
+            </div>
+          </div>
         </div>
         <div className="top-environment">
           <ErrorBoundary label="Live conditions" compact><LiveEnvironmentSnapshot homeLocation={agenda.homeLocation} liveLocation={liveLocation} isDemo={isDemo} chipMode={true}/></ErrorBoundary>
