@@ -136,17 +136,20 @@ try {
       const header = document.querySelector('.app-topbar');
       const title = document.querySelector('.app-welcome h1');
       const subtitle = document.querySelector('.app-welcome .ant-brand-copy p');
-      const ant = document.querySelector('.app-welcome .ant-brand-symbol svg');
+      const logo = title?.querySelector('img.ant-brand-wordmark');
       const welcome = document.querySelector('.app-welcome');
       const environment = document.querySelector('.top-environment');
-      if (!header || !title || !subtitle || !ant || !welcome || !environment) return null;
+      if (!header || !title || !subtitle || !logo || !welcome || !environment) return null;
       const titleRect = title.getBoundingClientRect();
       const subtitleRect = subtitle.getBoundingClientRect();
       const welcomeRect = welcome.getBoundingClientRect();
       const envRect = environment.getBoundingClientRect();
       return {
         viewport: window.innerWidth,
-        headingLines: titleRect.height / parseFloat(getComputedStyle(title).lineHeight),
+        logoWidth: logo.getBoundingClientRect().width,
+        logoHeight: logo.getBoundingClientRect().height,
+        logoLoaded: logo.complete && logo.naturalWidth === 558 && logo.naturalHeight === 177,
+        logoAlt: logo.getAttribute('alt'),
         sentenceLines: subtitleRect.height / parseFloat(getComputedStyle(subtitle).lineHeight),
         headerHeight: header.getBoundingClientRect().height,
         horizontalOverflow: header.scrollWidth > header.clientWidth + 2,
@@ -154,17 +157,18 @@ try {
           ? welcomeRect.right > envRect.left + 2
           : welcomeRect.bottom > envRect.top + 2,
         chips: environment.querySelectorAll('.env-chip').length,
-        logo: title.textContent?.trim(),
         tagline: subtitle.textContent?.trim(),
-        antVisible: ant.getBoundingClientRect().width >= 25,
+        oldIcon: !!document.querySelector('.ant-brand-symbol, .ant-brand-copy svg'),
       };
     });
     assert(layout && layout.chips >= 5,
       label + ': test requires populated live environment chips: ' + JSON.stringify(layout));
-    assert.equal(layout.logo, 'ANTELLIGENCE', label + ': incorrect product name');
+    assert.equal(layout.logoAlt, 'Antelligence', label + ': logo image must retain accessible name');
     assert.equal(layout.tagline, 'Intelligence through coordination', label + ': missing brand message');
-    assert(layout.antVisible && layout.headingLines <= 1.08 && layout.sentenceLines <= 1.08,
-      label + ': ant symbol, name and tagline must stay compact and legible: ' + JSON.stringify(layout));
+    assert(layout.logoLoaded && layout.logoWidth >= 175 && layout.logoWidth <= 210 &&
+      layout.logoHeight >= 55 && layout.logoHeight <= 70 &&
+      !layout.oldIcon && layout.sentenceLines <= 1.08,
+      label + ': exact image should fit compactly without the old ant or text logo: ' + JSON.stringify(layout));
     assert(!layout.horizontalOverflow && !layout.overlaps,
       label + ': live chips must not overlap or overflow the greeting: ' + JSON.stringify(layout));
     if (layout.viewport >= 1024) {
@@ -291,11 +295,11 @@ try {
     'full-page map must identify AWS routing without implying AWS basemap tiles');
   assert(await page.getByRole('button', { name: 'Map', exact: true }).getAttribute('aria-current') === 'page',
     'expanding map must highlight Map tab');
-  await page.goBack();
+  await page.evaluate(() => window.history.back());
   await page.locator('.landing-hero').waitFor({ state: 'visible' });
   assert.equal(await page.getByRole('button', { name: 'Today', exact: true }).getAttribute('aria-current'), 'page',
     'browser Back must restore Today after expanding the map');
-  await page.goForward();
+  await page.evaluate(() => window.history.forward());
   await page.locator('.fullpage-map-screen').waitFor({ state: 'visible' });
   assert.equal(await page.getByRole('button', { name: 'Map', exact: true }).getAttribute('aria-current'), 'page',
     'browser Forward must reopen the full-page map');
@@ -310,15 +314,32 @@ try {
   // without losing the pending itinerary.
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   assert.equal(await page.getByRole('button', { name: 'Settings', exact: true }).getAttribute('aria-current'), 'page');
-  await page.goBack();
-  await page.locator('.landing-hero').waitFor({ state: 'visible' });
+  const beforeSettingsBack = await page.evaluate(() => ({ state: history.state?.pollutionView, length: history.length }));
+  await page.evaluate(() => window.history.back());
+  await page.waitForTimeout(450);
+  const afterSettingsBack = await page.evaluate(() => ({
+    state: history.state?.pollutionView,
+    length: history.length,
+    active: document.querySelector('.bottom-nav [aria-current="page"]')?.textContent,
+    hasLandingHero: !!document.querySelector('.landing-hero'),
+  }));
+  console.log('Settings Back diagnostics:', JSON.stringify({ beforeSettingsBack, afterSettingsBack }));
+  await page.locator('.landing-hero').waitFor({ state: 'visible', timeout: 3500 });
   // Going Back must not create a new history entry and erase Forward.
   assert.equal(await page.evaluate(() => history.state?.pollutionView?.tab), 'today',
     'Back must restore the Today history entry');
-  await page.goForward();
+  await page.evaluate(() => window.history.forward());
+  await page.waitForTimeout(500);
+  const afterSettingsForward = await page.evaluate(() => ({
+    state: history.state?.pollutionView,
+    active: document.querySelector('.bottom-nav [aria-current="page"]')?.textContent,
+    hasLandingHero: !!document.querySelector('.landing-hero'),
+    readyState: document.readyState,
+  }));
+  console.log('Settings Forward diagnostics:', JSON.stringify(afterSettingsForward));
   await page.waitForFunction(() =>
     document.querySelector('.bottom-nav button[aria-current="page"]')?.textContent?.includes('Settings'),
-    undefined, { timeout: 5000 });
+    undefined, { timeout: 3500 });
   assert.equal(await page.evaluate(() => history.state?.pollutionView?.tab), 'settings',
     'Forward must retain and restore the Settings history entry');
   assert.equal(await page.getByRole('button', { name: 'Settings', exact: true }).getAttribute('aria-current'), 'page',
@@ -326,9 +347,9 @@ try {
   await page.getByRole('button', { name: 'Today', exact: true }).click();
   await page.getByRole('button', { name: 'Enter your day' }).click();
   await page.locator('.itinerary-editor').waitFor({ state: 'visible' });
-  await page.goBack();
+  await page.evaluate(() => window.history.back());
   await page.locator('.landing-hero').waitFor({ state: 'visible' });
-  await page.goForward();
+  await page.evaluate(() => window.history.forward());
   await page.locator('.itinerary-editor').waitFor({ state: 'visible' });
   await page.locator('.itinerary-editor .back').click();
   await page.locator('.landing-hero').waitFor({ state: 'visible' });
