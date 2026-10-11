@@ -84,6 +84,7 @@ export interface TripAnalysis {
   tripId: string;
   origin: string;
   destination: string;
+  arriveBy?: string;
   original: RouteCandidate;
   recommended: RouteCandidate;
   candidatesEvaluated: number;

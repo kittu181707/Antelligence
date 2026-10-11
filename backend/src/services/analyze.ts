@@ -15,6 +15,7 @@ import { environmentAt } from './environment';
 import { scoreRoute } from '../core/exposure';
 import { shiftTime, timeToMinutes, availableMinutes } from '../core/time';
 import { optimizeCandidateSets } from '../core/optimizer';
+import { earlierDeparture, estimatedLateMinutes } from '../core/feasibility';
 
 export const TIME_SHIFT_OPTIONS = [-30, 0, 30] as const;
 export const ALT_MODE_ORDER: TransportMode[] = ['metro', 'bus', 'car', 'bike', 'walk'];
@@ -72,7 +73,10 @@ async function buildCandidateSet(
   const earliestDeparture = earliestDepartureForJourney(input.events, journey.origin, journey.destination, journey.arriveBy);
   const jobs: RouteJob[] = [];
 
-  for (const shift of TIME_SHIFT_OPTIONS) {
+  // Long intercity journeys need fewer provider requests to stay within API Gateway's
+  // synchronous timeout. Earlier departures are calculated from the route ETA below.
+  const longJourney = distanceKm(origin, destination) > 25;
+  for (const shift of (longJourney ? [0] : TIME_SHIFT_OPTIONS)) {
     const shiftedMinutes = timeToMinutes(journey.departureTime) + shift;
     if (shiftedMinutes < 0 || shiftedMinutes >= 1440) continue; // Single-day model.
     const departureTime = shiftTime(journey.departureTime, shift);
@@ -85,6 +89,9 @@ async function buildCandidateSet(
   // provider supports it; failed live modes return clearly labeled estimates.
   // We never auto-recommend an unverified estimated transit connection.
   for (const mode of ALT_MODE_ORDER.filter((mode) => mode !== journey.mode)) {
+    // On long journeys try the chosen mode and, when different, car as a
+    // realistic comparison. Avoid querying unsupported city-scale modes.
+    if (longJourney && mode !== 'car') continue;
     jobs.push({ mode, shift: 0, departureTime: journey.departureTime, includeAlternative: false });
   }
 
@@ -120,9 +127,30 @@ async function buildCandidateSet(
       // change someone's mode onto an unverified connection.
       if (route.mode !== journey.mode && (route.source.startsWith('Planning estimate') ||
           route.source.includes('not bicycle-verified'))) continue;
-      if (route.travelMinutes > availableMinutes(job.departureTime, journey.arriveBy)) continue;
-      routeSources.add(route.source);
-      routeCandidates.push({ route, job });
+      const isOriginal = job.mode === journey.mode && job.shift === 0;
+      const late = estimatedLateMinutes({ departureTime: job.departureTime, travelMinutes: route.travelMinutes }, journey.arriveBy) > 0;
+      // Always retain the requested trip so a physically long journey can
+      // produce an honest analysis even if no schedule can accommodate it.
+      if (!late || isOriginal) {
+        routeSources.add(route.source);
+        routeCandidates.push({ route, job });
+      }
+      if (late && journey.arriveBy) {
+        const earlier = earlierDeparture(route.travelMinutes, journey.departureTime, journey.arriveBy, earliestDeparture);
+        if (earlier && earlier.shiftMinutes !== job.shift) {
+          // Same route geometry, but its duration at the earlier departure
+          // has NOT been independently traffic-verified. Say so explicitly.
+          const adjustedRoute = {
+            ...route,
+            routeId: route.routeId + '-earlier',
+            label: route.label + ' · earlier departure (estimated ETA)',
+            source: route.source + ' · earlier departure estimated from route duration; verify traffic',
+          };
+          routeSources.add(adjustedRoute.source);
+          routeCandidates.push({ route: adjustedRoute,
+            job: { ...job, departureTime: earlier.departureTime, shift: earlier.shiftMinutes, includeAlternative: false } });
+        }
+      }
     }
   });
 
@@ -171,7 +199,7 @@ async function buildCandidateSet(
   if (!original) throw new Error('Original route was lost during candidate preparation');
 
   const candidates = deduped
-    .filter((candidate) => candidate.candidateId === original.candidateId || isUsefulAlternative(candidate, original))
+    .filter((candidate) => candidate.candidateId === original.candidateId || isUsefulAlternative(candidate, original, journey.arriveBy))
     .slice(0, 12);
 
   return {
@@ -181,7 +209,11 @@ async function buildCandidateSet(
   };
 }
 
-function isUsefulAlternative(candidate: RouteCandidate, original: RouteCandidate) {
+function isUsefulAlternative(candidate: RouteCandidate, original: RouteCandidate, arriveBy?: string) {
+  const originalLate = estimatedLateMinutes(original, arriveBy);
+  const candidateLate = estimatedLateMinutes(candidate, arriveBy);
+  if (candidateLate > 0 && originalLate === 0) return false;
+  if (originalLate > candidateLate) return true; // Appointment feasibility beats exposure optimization.
   if (original.modeledExposure <= 0) return false;
   const gain = (original.modeledExposure - candidate.modeledExposure) / original.modeledExposure;
   if (gain <= 0) return false;

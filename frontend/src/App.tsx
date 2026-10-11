@@ -95,6 +95,7 @@ export default function App() {
   const dashboardPanelRef = useRef<HTMLElement | null>(null);
   const mapPointerStart = useRef<{ x: number; y: number; id: number } | null>(null);
   const mapWasDragged = useRef(false);
+  const analysisEpoch = useRef(0);
 
   const plannedJourneys = useMemo(() => editableJourneys(agenda, journeys), [agenda, journeys]);
 
@@ -157,7 +158,7 @@ export default function App() {
   // soon as a new analyzed Today view appears, before it becomes visible.
   // Deliberate scrolling after entry remains completely under user control.
   useLayoutEffect(() => {
-    if (tab === 'today' && step === 'landing' && analysis) {
+    if (tab === 'today' && (step === 'landing' || step === 'final') && analysis) {
       if (dashboardMainRef.current) dashboardMainRef.current.scrollTop = 0;
       if (dashboardPanelRef.current) dashboardPanelRef.current.scrollTop = 0;
     }
@@ -270,6 +271,17 @@ export default function App() {
 
   const setMaxExtra = (value: number) => { setMaxExtraState(value); storeNumber('max_extra_minutes', value); };
 
+  const goHome = () => {
+    // Returning to the logo is a fresh landing, not an analyzed dashboard.
+    // Invalidate any pending API response so it cannot reopen an old result.
+    analysisEpoch.current += 1;
+    setBusy(false); setIsAnalyzing(false); setAnalysisComplete(false);
+    setAnalysis(null); setAccepted(null); setJourneys([]);
+    setAgenda(blankAgenda(liveLocation)); setPreviewPoints([]);
+    setIsDemo(false); setError(undefined); setWhyTrip(null); setWhyText('');
+    navigate('today', 'landing');
+  };
+
   const startAgenda = (mode: AgendaMode) => {
     setIsDemo(false);
     setWhyText(''); setWhyTrip(null);
@@ -284,6 +296,7 @@ export default function App() {
 
   const loadDemo = async () => {
     if (busy) return;
+    const epoch = ++analysisEpoch.current;
     setWhyText(''); setWhyTrip(null);
     setBusy(true); setError(undefined);
     try {
@@ -293,21 +306,25 @@ export default function App() {
         departureTime: ['07:45', '12:00', '17:45', '19:20'][index] || journey.departureTime,
         mode: (['car', 'metro', 'metro', 'bike'][index] || journey.mode) as JourneyInput['mode'],
       }));
+      if (epoch !== analysisEpoch.current) return;
       setIsDemo(true); setAgenda(demo); setJourneys(demoJourneys); setAgendaMode('manual');
       
       if (userId) {
         const result = await api.analyzeDay({ ...demo, userId, journeys: demoJourneys, maxExtraMinutes: maxExtra, demoMode: true });
+        if (epoch !== analysisEpoch.current) return;
         setAnalysis(result);
         if (result.changes.length > 0) {
           const whyResult = await api.explain(result.planId, result.changes[0]);
+          if (epoch !== analysisEpoch.current) return;
           setWhyText(whyResult.explanation);
         }
       }
+      if (epoch !== analysisEpoch.current) return;
       navigate('today', 'landing');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load demo day');
+      if (epoch === analysisEpoch.current) setError(e instanceof Error ? e.message : 'Could not load demo day');
     } finally {
-      setBusy(false);
+      if (epoch === analysisEpoch.current) setBusy(false);
     }
   };
 
@@ -345,25 +362,32 @@ export default function App() {
     if (!userId) { setError('Private session is initializing. Please retry.'); return; }
     setWhyText(''); setWhyTrip(null);
     setError(undefined); setBusy(true); setAnalysisComplete(false); setIsAnalyzing(true);
+    const epoch = ++analysisEpoch.current;
     const startedAt = Date.now();
     try {
       const result = await api.analyzeDay({ ...agenda, userId, journeys: plannedJourneys, maxExtraMinutes: maxExtra, demoMode: isDemo });
+      if (epoch !== analysisEpoch.current) return;
       // Intermediate ticks are illustrative. The last tick is shown only
       // after the API succeeds, before the result page replaces this overlay.
       setAnalysisComplete(true);
       await new Promise<void>((resolve) => window.setTimeout(resolve, Math.max(
         ANALYSIS_COMPLETED_HOLD_MS, ANALYSIS_MIN_DISPLAY_MS - (Date.now() - startedAt),
       )));
+      if (epoch !== analysisEpoch.current) return;
       setAnalysis(result);
       setJourneys(plannedJourneys);
-      navigate('today', 'landing'); // Render dashboard
+      navigate('today', 'final'); // Take users straight to their analyzed plan.
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Analysis failed');
-      setStep(agendaMode);
+      if (epoch === analysisEpoch.current) {
+        setError(e instanceof Error ? e.message : 'Analysis failed');
+        setStep(agendaMode);
+      }
     } finally {
-      setIsAnalyzing(false);
-      setAnalysisComplete(false);
-      setBusy(false);
+      if (epoch === analysisEpoch.current) {
+        setIsAnalyzing(false);
+        setAnalysisComplete(false);
+        setBusy(false);
+      }
     }
   };
 
@@ -434,7 +458,7 @@ export default function App() {
   else if (step === 'import' || step === 'manual') content = <ImportScreen agenda={agenda} setAgenda={setAgenda} mode={step} journeys={plannedJourneys} setJourneys={setJourneys} maxExtra={maxExtra} setMaxExtra={setMaxExtra} onBack={() => navigate('today', 'landing')} onAnalyze={runAnalysis} onIcs={importIcs} busy={busy} error={error} liveLocation={liveLocation}/>;
   else if (step === 'overview' && analysis) content = <OverviewScreen analysis={analysis} onChanges={() => navigate('today', 'changes')} onKeep={() => { setAnalysis(null); navigate('today', 'landing'); }}/>;
   else if (step === 'changes' && analysis) content = <ChangesScreen analysis={analysis} onBack={() => navigate('today', 'overview')} onWhy={openWhy} onFinal={() => navigate('today', 'final')}/>;
-  else if (step === 'final' && analysis) content = <FinalPlanScreen analysis={analysis} onBack={() => navigate('today', 'changes')} onAccept={acceptPlan} busy={busy}/>;
+  else if (step === 'final' && analysis) content = <FinalPlanScreen analysis={analysis} onBack={() => navigate('today', 'landing')} onAccept={acceptPlan} busy={busy}/>;
   else if (step === 'accepted' && accepted) content = <AcceptedScreen plan={accepted} onDone={() => navigate('today', 'landing')}/>;
   else content = <TodayScreen agenda={agenda} journeys={journeys} analysis={analysis} whyText={whyText} whyTrip={whyTrip} onWhy={openWhy} busy={busy} isDemo={isDemo} liveLocation={liveLocation} onImport={() => startAgenda('import')} onManual={() => startAgenda('manual')} onDemo={loadDemo} onAnalyze={runAnalysis} error={error} />;
 
@@ -442,7 +466,7 @@ export default function App() {
     <div className="app-container">
       <header className="app-topbar">
         <div className="app-welcome">
-          <div className="ant-brand">
+          <button type="button" className="ant-brand" aria-label="Antelligence — return to start" title="Return to start" onClick={goHome}>
             <img className="ant-brand-emblem" src="/antelligence-emblem.svg"
               alt="" aria-hidden="true" width={188} height={160} />
             <div className="ant-brand-copy">
@@ -451,7 +475,7 @@ export default function App() {
               </h1>
               <p>Intelligence through coordination</p>
             </div>
-          </div>
+          </button>
         </div>
         <div className="top-environment">
           <ErrorBoundary label="Live conditions" compact><LiveEnvironmentSnapshot homeLocation={agenda.homeLocation} liveLocation={liveLocation} isDemo={isDemo} chipMode={true}/></ErrorBoundary>

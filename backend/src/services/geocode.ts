@@ -24,17 +24,33 @@ export async function geocode(location: string, demoMode: boolean): Promise<Coor
   }
   if (demoMode && DEMO_COORDS[query]) return DEMO_COORDS[query];
 
-  const key = query.toLowerCase();
+  // Common local station/city shorthand, normalized before searching AWS Places.
+  // We never fabricate coordinates for arbitrary unresolved user text.
+  const aliases: Record<string, string> = {
+    gnt: 'Guntur, Andhra Pradesh, India',
+    vij: 'Vijayawada, Andhra Pradesh, India',
+  };
+  const lookup = aliases[query.toLowerCase()] || query;
+  const key = lookup.toLowerCase();
   const cached = cache.get(key);
   if (cached) return cached;
 
   const { GeocodeCommand } = await import('@aws-sdk/client-geo-places');
-  const response: any = await (await client()).send(new GeocodeCommand({ QueryText: query, MaxResults: 1 }));
-  const position = response.ResultItems?.[0]?.Position;
-
-  if (!Array.isArray(position) || position.length < 2 || !Number.isFinite(position[0]) || !Number.isFinite(position[1])) {
-    throw new Error(`Could not geocode ${query}`);
+  let position: number[] | undefined;
+  for (const candidate of [lookup, ...(lookup.includes(',') ? [] : [lookup + ', India'])]) {
+    try {
+      const response: any = await (await client()).send(new GeocodeCommand({ QueryText: candidate, MaxResults: 1 }));
+      const coordinates = response.ResultItems?.[0]?.Position;
+      if (Array.isArray(coordinates) && coordinates.length >= 2 &&
+          Number.isFinite(coordinates[0]) && Number.isFinite(coordinates[1])) {
+        position = coordinates;
+        break;
+      }
+    } catch (error) {
+      if (candidate.endsWith(', India')) throw error;
+    }
   }
+  if (!position) throw new Error(`Could not find "${query}". Enter a city or full address, or use latitude,longitude.`);
 
   const result = { lon: Number(position[0]), lat: Number(position[1]) };
   cache.set(key, result);

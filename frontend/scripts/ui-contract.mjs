@@ -52,6 +52,9 @@ assert(app.includes('LiveEnvironmentSnapshot'), 'shared top bar must show real e
 assert(entryFile.includes('<ErrorBoundary') && app.includes('<ErrorBoundary label="Live map"') && app.includes('<ErrorBoundary label="Live conditions"'), 'map and live conditions errors must not cause a white screen');
 assert(errorBoundary.includes('getDerivedStateFromError') && errorBoundary.includes('Try again'), 'render crash must present a recoverable UI');
 assert(app.includes('app-topbar') && app.includes('global-map-col'), 'all pages must use the shared header and compact map');
+assert(app.includes('className="ant-brand" aria-label="Antelligence — return to start"') && app.includes('onClick={goHome}') &&
+  app.includes("navigate('today', 'final')") && read('src/screens/FinalPlanScreen.tsx').includes('Appointments at risk (estimated)'),
+  'logo must reset to start and successful analysis must open an honest final plan');
 const sharedHeaderStyles = read('src/styles.css');
 const emblem = read('public/antelligence-emblem.svg');
 assert(emblem.includes('viewBox="0 0 188 160"') &&

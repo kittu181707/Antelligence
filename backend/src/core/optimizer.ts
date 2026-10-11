@@ -1,4 +1,5 @@
 import type { CalendarEvent, DayAnalysis, RouteCandidate, TripCandidateSet } from '../types';
+import { estimatedLateMinutes } from './feasibility';
 
 export interface OptimizeSetsInput {
   userId: string;
@@ -35,7 +36,7 @@ export function optimizeCandidateSets(input: OptimizeSetsInput): DayAnalysis {
         const extra = extraSoFar + Math.max(0, candidate.travelMinutes - set.original.travelMinutes);
         if (extra > input.maxExtraMinutes) continue;
 
-        const score = state.score + candidateScore(candidate, set.original);
+        const score = state.score + candidateScore(candidate, set.original, set.journey.arriveBy);
         const existing = next.get(extra);
         const combinations = (existing?.combinations || 0n) + state.combinations;
 
@@ -62,7 +63,10 @@ export function optimizeCandidateSets(input: OptimizeSetsInput): DayAnalysis {
 
   // Do not invent improvements. A sub-0.75% whole-day gain is within
   // modeling noise; clearer alternatives can still be shown as comparisons.
-  if (originalRaw > 0 && (originalRaw - optimizedRaw) / originalRaw < 0.0075) {
+  const lateness = (items: RouteCandidate[]) => items.reduce((total, item, i) =>
+    total + estimatedLateMinutes(item, input.sets[i].journey.arriveBy), 0);
+  if (lateness(selected) >= lateness(originals) && originalRaw > 0 &&
+      (originalRaw - optimizedRaw) / originalRaw < 0.0075) {
     selected = originals;
     optimizedRaw = originalRaw;
   }
@@ -75,11 +79,12 @@ export function optimizeCandidateSets(input: OptimizeSetsInput): DayAnalysis {
       tripId: set.journey.tripId,
       origin: set.journey.origin,
       destination: set.journey.destination,
+      arriveBy: set.journey.arriveBy,
       original: set.original,
       recommended,
       candidatesEvaluated: set.candidates.length,
       changed,
-      explanation: explain(set.original, recommended, set.journey.origin, set.journey.destination),
+      explanation: explain(set.original, recommended, set.journey.origin, set.journey.destination, set.journey.arriveBy),
     };
   });
 
@@ -105,7 +110,8 @@ export function optimizeCandidateSets(input: OptimizeSetsInput): DayAnalysis {
       originalRawExposure: round(originalRaw),
       optimizedRawExposure: round(optimizedRaw),
       extraTravelMinutes,
-      appointmentsChanged: 0,
+      appointmentsChanged: input.sets.reduce((count, set, index) =>
+        count + (estimatedLateMinutes(selected[index], set.journey.arriveBy) > 0 ? 1 : 0), 0),
       originalHighUvMinutes: round(sum(originals, 'highUvOutdoorMinutes')),
       optimizedHighUvMinutes: round(sum(selected, 'highUvOutdoorMinutes')),
       originalHeatRiskMinutes: round(sum(originals, 'heatRiskOutdoorMinutes')),
@@ -128,15 +134,23 @@ export function optimizeCandidateSets(input: OptimizeSetsInput): DayAnalysis {
   };
 }
 
-function candidateScore(candidate: RouteCandidate, original: RouteCandidate) {
+function candidateScore(candidate: RouteCandidate, original: RouteCandidate, arriveBy?: string) {
   const extra = Math.max(0, candidate.travelMinutes - original.travelMinutes);
   const heatUv = candidate.highUvOutdoorMinutes + candidate.heatRiskOutdoorMinutes;
   const timeShift = Math.abs(candidate.shiftMinutes);
   const changePenalty = candidate.candidateId === original.candidateId ? 0 : 2;
-  return candidate.modeledExposure * 1000 + heatUv * 10 + extra + timeShift * 0.1 + changePenalty;
+  // Never choose a late appointment to save a small amount of pollution exposure.
+  const late = estimatedLateMinutes(candidate, arriveBy);
+  return (late > 0 ? 1_000_000 + late * 500_000 : 0)
+    + candidate.modeledExposure * 1000 + heatUv * 10 + extra + timeShift * 0.1 + changePenalty;
 }
 
-function explain(original: RouteCandidate, recommended: RouteCandidate, origin: string, destination: string) {
+function explain(original: RouteCandidate, recommended: RouteCandidate, origin: string, destination: string, arriveBy?: string) {
+  const late = estimatedLateMinutes(recommended, arriveBy);
+  if (late) return `Schedule warning: ${origin} to ${destination} is estimated to arrive ${late} min after ${arriveBy}. Leave earlier or change the appointment; this is not a feasible on-time plan.`;
+  if (estimatedLateMinutes(original, arriveBy) > 0) {
+    return `Leave earlier at ${recommended.departureTime} to reach ${destination} by ${arriveBy}, based on estimated travel duration. Verify traffic and actual arrival time.`;
+  }
   if (original.candidateId === recommended.candidateId) {
     return `No change needed for ${origin} to ${destination}; the current trip is the best feasible choice.`;
   }
