@@ -24,14 +24,15 @@ export async function routesForTrip(input: {
   arriveBy?: string;
   demoMode: boolean;
   tripOrdinal: number;
-}): Promise<BaseRoute[]> {
+}, requestOverride?: (command: any) => Promise<any>): Promise<BaseRoute[]> {
   if (input.demoMode) return demoRoutes(input);
 
   if (!validCoordinate(input.origin) || !validCoordinate(input.destination)) {
     throw new Error('Invalid route coordinates; check the starting point and destination.');
   }
   const { CalculateRoutesCommand } = await import('@aws-sdk/client-geo-routes');
-  const aws = await client();
+  // Optional injected transport keeps real fallback behavior testable offline.
+  const aws = requestOverride ? null : await client();
   // AWS has no bicycle mode. Its car-road geometry is a distance proxy,
   // not bicycle-safe or bicycle-legal navigation.
   const travelMode = input.mode === 'walk' ? 'Pedestrian' : (input.mode === 'bus' || input.mode === 'metro') ? 'Transit' : 'Car';
@@ -53,7 +54,9 @@ export async function routesForTrip(input: {
       };
     }
     try {
-      const result: any = await aws.send(new CalculateRoutesCommand(command));
+      const result: any = requestOverride
+        ? await requestOverride(command)
+        : await aws!.send(new CalculateRoutesCommand(command));
       return result.Routes || [];
     } catch (error: any) {
       const diagnostic = [error?.message, error?.Reason, error?.reason].filter(Boolean).join(' ');
@@ -62,7 +65,9 @@ export async function routesForTrip(input: {
       if ((error?.name === 'ValidationException' || error?.name === 'RoutesValidationException') &&
           /departure|time/i.test(diagnostic) && command.DepartureTime) {
         delete command.DepartureTime;
-        const result: any = await aws.send(new CalculateRoutesCommand(command));
+        const result: any = requestOverride
+          ? await requestOverride(command)
+          : await aws!.send(new CalculateRoutesCommand(command));
         return result.Routes || [];
       }
       throw error;
