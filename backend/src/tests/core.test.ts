@@ -5,7 +5,7 @@ import { matchesSession, sessionUserId } from '../auth';
 import { optimizeCandidateSets } from '../core/optimizer';
 import { snapshotFromTomorrowValues } from '../services/environment';
 import { scoreRoute } from '../core/exposure';
-import { estimatedBikeMinutes, futureDeparture, userFacingRoutingError } from '../services/routes';
+import { estimatedBikeMinutes, futureDeparture, userFacingRoutingError, planningEstimate } from '../services/routes';
 import { workflowFailureReason } from '../handlers/analyze-api';
 import { checkForecastDate, indiaToday, lastForecastDay } from '../core/time';
 import type { RouteCandidate, TripCandidateSet } from '../types';
@@ -152,6 +152,28 @@ assert.equal(estimatedBikeMinutes(14000), 69, '14km at 14km/h plus 15% margin = 
 assert.equal(estimatedBikeMinutes(1000), 5);
 assert.throws(() => estimatedBikeMinutes(-1), /Invalid distance/);
 assert.throws(() => estimatedBikeMinutes(Infinity), /Invalid distance/);
+
+// All five modes must have an honestly labeled, deterministic planning fallback
+// even when the live routing API lacks coverage. None is a transit timetable
+// or turn-by-turn navigable route.
+const fallbackStart = { lat: 16.328441, lon: 80.416747 };
+const fallbackEnd = { lat: 16.33422, lon: 80.43001 };
+for (const mode of ['car', 'bike', 'bus', 'metro', 'walk'] as const) {
+  for (const basis of ['road', 'straight'] as const) {
+    const estimate = planningEstimate({
+      origin: fallbackStart, destination: fallbackEnd, mode,
+    }, 3, [fallbackStart, fallbackEnd], basis);
+    assert.equal(estimate.mode, mode);
+    assert(estimate.travelMinutes > 0 && Number.isFinite(estimate.travelMinutes));
+    assert.equal(estimate.geometry.length, 2);
+    assert.match(estimate.label, /estimate only/);
+    assert.match(estimate.source, /Planning estimate.*not navigable directions/);
+    if (mode === 'bus' || mode === 'metro') assert.match(estimate.source, /no verified transit service/);
+  }
+}
+assert.throws(() => planningEstimate({ origin: fallbackStart, destination: fallbackEnd, mode: 'walk' },
+  NaN, [fallbackStart, fallbackEnd], 'straight'), /Invalid fallback/);
+
 
 
 const nestedFailure = JSON.stringify({ errorMessage: 'Live bus routing is unavailable for this journey.' });
