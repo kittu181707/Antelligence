@@ -295,11 +295,11 @@ try {
     'full-page map must identify AWS routing without implying AWS basemap tiles');
   assert(await page.getByRole('button', { name: 'Map', exact: true }).getAttribute('aria-current') === 'page',
     'expanding map must highlight Map tab');
-  await page.goBack();
+  await page.evaluate(() => window.history.back());
   await page.locator('.landing-hero').waitFor({ state: 'visible' });
   assert.equal(await page.getByRole('button', { name: 'Today', exact: true }).getAttribute('aria-current'), 'page',
     'browser Back must restore Today after expanding the map');
-  await page.goForward();
+  await page.evaluate(() => window.history.forward());
   await page.locator('.fullpage-map-screen').waitFor({ state: 'visible' });
   assert.equal(await page.getByRole('button', { name: 'Map', exact: true }).getAttribute('aria-current'), 'page',
     'browser Forward must reopen the full-page map');
@@ -314,12 +314,12 @@ try {
   // without losing the pending itinerary.
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   assert.equal(await page.getByRole('button', { name: 'Settings', exact: true }).getAttribute('aria-current'), 'page');
-  await page.goBack();
+  await page.evaluate(() => window.history.back());
   await page.locator('.landing-hero').waitFor({ state: 'visible' });
   // Going Back must not create a new history entry and erase Forward.
   assert.equal(await page.evaluate(() => history.state?.pollutionView?.tab), 'today',
     'Back must restore the Today history entry');
-  await page.goForward();
+  await page.evaluate(() => window.history.forward());
   await page.waitForFunction(() =>
     document.querySelector('.bottom-nav button[aria-current="page"]')?.textContent?.includes('Settings'),
     undefined, { timeout: 5000 });
@@ -330,9 +330,9 @@ try {
   await page.getByRole('button', { name: 'Today', exact: true }).click();
   await page.getByRole('button', { name: 'Enter your day' }).click();
   await page.locator('.itinerary-editor').waitFor({ state: 'visible' });
-  await page.goBack();
+  await page.evaluate(() => window.history.back());
   await page.locator('.landing-hero').waitFor({ state: 'visible' });
-  await page.goForward();
+  await page.evaluate(() => window.history.forward());
   await page.locator('.itinerary-editor').waitFor({ state: 'visible' });
   await page.locator('.itinerary-editor .back').click();
   await page.locator('.landing-hero').waitFor({ state: 'visible' });
