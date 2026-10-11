@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
 import { Maximize2, Leaf, ShieldCheck } from 'lucide-react';
 import { api } from './api';
 import { BottomNav, type NavTab } from './components/BottomNav';
@@ -109,11 +110,11 @@ export default function App() {
     else window.history.pushState(next, '', window.location.href);
   }, [tab, step]);
 
-  const mapPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+  const mapPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     mapWasDragged.current = false;
     mapPointerStart.current = { x: event.clientX, y: event.clientY, id: event.pointerId };
   };
-  const mapPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+  const mapPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     const origin = mapPointerStart.current;
     if (origin && origin.id === event.pointerId &&
         Math.hypot(event.clientX - origin.x, event.clientY - origin.y) > 7) {
