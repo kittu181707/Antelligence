@@ -53,11 +53,22 @@ assert(entryFile.includes('<ErrorBoundary') && app.includes('<ErrorBoundary labe
 assert(errorBoundary.includes('getDerivedStateFromError') && errorBoundary.includes('Try again'), 'render crash must present a recoverable UI');
 assert(app.includes('app-topbar') && app.includes('global-map-col'), 'all pages must use the shared header and compact map');
 const sharedHeaderStyles = read('src/styles.css');
-assert(sharedHeaderStyles.includes('.app-welcome h1 span { display: block;') &&
+assert(app.includes('<h1>ANTELLIGENCE</h1>') &&
+  app.includes('<p>Intelligence through coordination</p>') &&
+  app.includes('className="ant-brand-symbol"') &&
+  app.includes('<svg viewBox="0 0 64 64"') &&
+  !app.includes('YOUR DAILY ENVIRONMENTAL COMPANION') &&
+  !app.includes("Here's your environmental plan for today."),
+  'topbar left side must show the ANTELLIGENCE name, ant mark and story tagline');
+assert(sharedHeaderStyles.includes('.ant-brand-symbol {') &&
+  sharedHeaderStyles.includes('.app-welcome .ant-brand-copy h1 {') &&
+  sharedHeaderStyles.includes('.app-welcome .ant-brand-copy p {') &&
   sharedHeaderStyles.includes('.top-environment { flex: 0 1 45%;') &&
-  sharedHeaderStyles.includes('.app-welcome h1 { margin: 0; font-size: clamp(18px, 1.6vw, 23px);') &&
   sharedHeaderStyles.includes('.top-environment .env-chip { min-width: 0;'),
-  'shared greeting must stay compact when live environmental readings fill the header');
+  'ANTELLIGENCE identity must stay compact without changing the weather/AQI layout');
+assert(app.includes('<div className="top-environment">') &&
+  app.includes('<LiveEnvironmentSnapshot homeLocation={agenda.homeLocation} liveLocation={liveLocation} isDemo={isDemo} chipMode={true}/>'),
+  'brand update must preserve the existing right-hand live environmental data');
 assert(nav.includes("['map', 'Map', MapIcon]") && nav.includes("['today', 'Today', CalendarDays]") && nav.includes("['settings', 'Settings', Settings]"),
   'primary navigation must offer only Today, Map and Settings');
 assert(!nav.includes("['optimize',") && !nav.includes("['impact',") && !nav.includes("['history',"),
