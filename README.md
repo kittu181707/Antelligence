@@ -1,4 +1,4 @@
-# AI Personal Pollution Optimizer
+# Antelligence - AI Personal Pollution Optimizer
 
 A whole-day environmental exposure optimizer that keeps fixed appointments intact while finding practical route, mode, and timing changes with lower modeled pollution exposure.
 
