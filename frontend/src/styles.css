@@ -593,6 +593,9 @@ body { overflow-x: hidden; }
 .demo-banner { border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; background: #fff0ed; color: #9a3412; font-size: 12px; font-weight: 650; }
 .global-panel-col .screen-title h1 { line-height: 1.2; }
 @media (max-width: 1050px) { .global-split-layout { grid-template-columns: minmax(0,1fr) 320px; } }
+@media (min-width: 761px) and (max-width: 950px) {
+  .app-welcome h1 { font-size: 17px; }
+}
 @media (max-width: 760px) {
   .app-topbar { flex-direction: column; align-items: stretch; gap: 8px; padding: 12px 16px 10px; }
   .app-welcome h1 { font-size: clamp(16px, 3.9vw, 19px); }
