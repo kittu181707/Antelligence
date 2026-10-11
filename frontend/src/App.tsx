@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Maximize2, Leaf, ShieldCheck } from 'lucide-react';
 import { api } from './api';
 import { BottomNav, type NavTab } from './components/BottomNav';
@@ -52,7 +52,19 @@ export default function App() {
   const [previewPoints, setPreviewPoints] = useState<{ id: string; label: string; point: Coordinates }[]>([]);
   const placeCache = useRef(new globalThis.Map<string, Coordinates>());
   const previousIndiaDay = useRef(localDate());
+  const dashboardMainRef = useRef<HTMLElement | null>(null);
+  const dashboardPanelRef = useRef<HTMLElement | null>(null);
   const plannedJourneys = useMemo(() => editableJourneys(agenda, journeys), [agenda, journeys]);
+
+  // The planner and results reuse the same column. Reset both scrollports as
+  // soon as a new analyzed Today view appears, before it becomes visible.
+  // Deliberate scrolling after entry remains completely under user control.
+  useLayoutEffect(() => {
+    if (tab === 'today' && step === 'landing' && analysis) {
+      if (dashboardMainRef.current) dashboardMainRef.current.scrollTop = 0;
+      if (dashboardPanelRef.current) dashboardPanelRef.current.scrollTop = 0;
+    }
+  }, [analysis?.planId, step, tab]);
 
   useEffect(() => {
     let active = true;
@@ -355,8 +367,8 @@ export default function App() {
           </div>
         </main>
       ) : (
-      <main className={`main-content global-split-layout ${tab === 'today' && (step === 'manual' || step === 'import') ? 'planner-layout' : tab === 'today' && step === 'landing' && analysis ? 'results-layout' : tab === 'today' && step === 'landing' && !agenda.events.length ? 'landing-layout' : ''}`}>
-        <section className="global-panel-col">
+      <main ref={dashboardMainRef} className={`main-content global-split-layout ${tab === 'today' && (step === 'manual' || step === 'import') ? 'planner-layout' : tab === 'today' && step === 'landing' && analysis ? 'results-layout' : tab === 'today' && step === 'landing' && !agenda.events.length ? 'landing-layout' : ''}`}>
+        <section ref={dashboardPanelRef} className="global-panel-col">
           {isDemo && <div className="demo-banner">DEMO MODE · Sample routes and conditions</div>}
           {content}
           {whyTrip && <Drawer title="Why this changed" onClose={() => setWhyTrip(null)}>
