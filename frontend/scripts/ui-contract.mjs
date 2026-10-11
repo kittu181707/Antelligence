@@ -54,7 +54,7 @@ assert(errorBoundary.includes('getDerivedStateFromError') && errorBoundary.inclu
 assert(app.includes('app-topbar') && app.includes('global-map-col'), 'all pages must use the shared header and compact map');
 const sharedHeaderStyles = read('src/styles.css');
 const emblem = read('public/antelligence-emblem.svg');
-assert(emblem.includes('viewBox="0 0 166 160"') &&
+assert(emblem.includes('viewBox="0 0 188 160"') &&
   emblem.includes('fill-rule="evenodd"') &&
   !emblem.includes('<image') && !emblem.includes('base64'),
   'emblem must use transparent vector artwork, not a pasted rectangular image');
