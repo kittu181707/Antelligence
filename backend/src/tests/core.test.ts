@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import type { APIGatewayProxyEvent } from 'aws-lambda';
 import { matchesSession, sessionUserId } from '../auth';
 import { optimizeCandidateSets } from '../core/optimizer';
+import { earlierDeparture, estimatedLateMinutes } from '../core/feasibility';
 import { snapshotFromTomorrowValues } from '../services/environment';
 import { scoreRoute } from '../core/exposure';
 import { estimatedBikeMinutes, futureDeparture, userFacingRoutingError, planningEstimate } from '../services/routes';
@@ -84,6 +85,34 @@ const stable = optimizeCandidateSets({
   userId: 'u1', date: '2026-01-01', events: [], sets: tinyGain, maxExtraMinutes: 0, environmentSource: 'test', routeSource: 'test',
 });
 assert.equal(stable.changes.length, 0);
+
+// Guntur -> Vijayawada: default 45-minute departure window but a 65-minute
+// trip must still produce a result, with an earlier recommendation if possible.
+const longOriginal = { ...c('gnt-vij-original', 'gnt-vij', 65, 100), departureTime: '08:15' };
+const longEarly = { ...c('gnt-vij-earlier', 'gnt-vij', 65, 110, -20), departureTime: '07:55' };
+assert.equal(estimatedLateMinutes(longOriginal, '09:00'), 20);
+assert.deepEqual(earlierDeparture(65, '08:15', '09:00'), { departureTime: '07:55', shiftMinutes: -20 });
+assert.equal(earlierDeparture(65, '08:15', '09:00', '08:00'), null, 'prior appointment blocks earlier departure');
+assert.equal(earlierDeparture(600, '08:15', '09:00'), null, 'cannot depart before midnight');
+const rescued = optimizeCandidateSets({
+  userId: 'u1', date: '2026-10-11', events: [], maxExtraMinutes: 0,
+  environmentSource: 'test', routeSource: 'test',
+  sets: [{ journey: { tripId: 'gnt-vij', origin: 'Guntur', destination: 'Vijayawada',
+    departureTime: '08:15', arriveBy: '09:00', mode: 'car' },
+    original: longOriginal, candidates: [longOriginal, longEarly] }],
+});
+assert.equal(rescued.trips[0].recommended.departureTime, '07:55');
+assert.equal(rescued.metrics.appointmentsChanged, 0);
+assert.equal(rescued.changes.length, 1, 'earlier departure should beat lower exposure when otherwise late');
+const unavoidable = optimizeCandidateSets({
+  userId: 'u1', date: '2026-10-11', events: [], maxExtraMinutes: 0,
+  environmentSource: 'test', routeSource: 'test',
+  sets: [{ journey: { tripId: 'gnt-vij', origin: 'Guntur', destination: 'Vijayawada',
+    departureTime: '08:15', arriveBy: '09:00', mode: 'car' },
+    original: longOriginal, candidates: [longOriginal] }],
+});
+assert.equal(unavoidable.metrics.appointmentsChanged, 1, 'do not claim an impossible appointment can be met');
+assert.match(unavoidable.trips[0].explanation, /Schedule warning/);
 
 const tomorrow = snapshotFromTomorrowValues({
   particulateMatter25: 44,
