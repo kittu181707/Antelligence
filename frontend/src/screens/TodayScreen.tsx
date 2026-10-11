@@ -1,4 +1,4 @@
-import { Search, ArrowRight, ArrowUpRight, Calendar, CalendarDays, MapPin, Navigation2, CheckCircle2, PlayCircle, AlertTriangle, ArrowDown, Clock3, Sun, Wind, HelpCircle, Route, ShieldCheck, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Search, ArrowRight, ArrowUpRight, Calendar, CalendarDays, MapPin, Navigation2, CheckCircle2, PlayCircle, AlertTriangle, ArrowDown, Clock3, Sun, Wind, HelpCircle, Route, ShieldCheck, Sparkles } from 'lucide-react';
 import type { AgendaPayload, JourneyInput, DayAnalysis, TripAnalysis, Coordinates } from '../types';
 import { shortTime } from '../utils';
 
