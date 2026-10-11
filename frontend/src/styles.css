@@ -1915,3 +1915,62 @@ body { overflow-x: hidden; }
   .results-impact-panel { transition: box-shadow .2s ease, border-color .2s ease; }
   .results-layout .dashboard-card:hover { box-shadow: 0 16px 29px rgba(16,75,49,.10); border-color: #bedfc9; }
 }
+
+
+/* Analyzed Today: the right-hand map + impact are ONE stationary, viewport-fit
+   composition, never an independently scrolling pane. Keep breathing room
+   above the floating bottom navigation, including shorter laptop screens. */
+@media (min-width: 901px) {
+  .results-layout .global-map-col {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    align-self: start;
+    height: min(510px, calc(100% - 84px));
+    max-height: calc(100% - 84px);
+    min-height: 0;
+    padding: 0;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  .results-layout .compact-map-card {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-height: 0;
+    padding: 10px 11px;
+  }
+  .results-layout .compact-map-head {
+    flex: 0 0 auto;
+    margin-bottom: 7px;
+  }
+  .results-layout .compact-map-frame {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 135px;
+    max-height: none;
+  }
+  /* The raster component has a 200px general-purpose minimum; this specific
+     fitted preview needs to be able to shrink without introducing overflow. */
+  .results-layout .compact-map-frame .raster-map { min-height: 0; }
+  .results-layout .compact-map-note {
+    flex: 0 0 auto;
+    margin: 7px 1px 0;
+    font-size: 10px;
+    line-height: 1.35;
+  }
+  .results-layout .results-impact-panel {
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 11px 12px;
+    border-radius: 15px;
+  }
+  .results-layout .results-impact-heading { gap: 8px; }
+  .results-layout .results-impact-icon { width: 30px; height: 30px; border-radius: 9px; }
+  .results-layout .results-impact-heading h3 { font-size: 14px; margin-top: 2px; }
+  .results-layout .results-impact-eyebrow { font-size: 9px; }
+  .results-layout .results-impact-stats { gap: 7px; margin-top: 8px; }
+  .results-layout .results-impact-stats > div { padding: 7px 9px; gap: 2px; }
+  .results-layout .results-impact-stats strong { font-size: 20px; }
+  .results-layout .results-impact-panel > p { margin-top: 7px; font-size: 9px; line-height: 1.35; }
+}
