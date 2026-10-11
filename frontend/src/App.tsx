@@ -175,6 +175,7 @@ export default function App() {
 
   const startAgenda = (mode: AgendaMode) => {
     setIsDemo(false);
+    setWhyText(''); setWhyTrip(null);
     setAgenda(blankAgenda(liveLocation));
     setJourneys([]);
     setAnalysis(null);
@@ -186,6 +187,7 @@ export default function App() {
 
   const loadDemo = async () => {
     if (busy) return;
+    setWhyText(''); setWhyTrip(null);
     setBusy(true); setError(undefined);
     try {
       const demo = await api.getDemoDay();
@@ -244,6 +246,7 @@ export default function App() {
       return;
     }
     if (!userId) { setError('Private session is initializing. Please retry.'); return; }
+    setWhyText(''); setWhyTrip(null);
     setError(undefined); setBusy(true); setAnalysisComplete(false); setIsAnalyzing(true);
     const startedAt = Date.now();
     try {
