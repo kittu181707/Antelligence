@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LocateFixed, Minus, Plus, ExternalLink } from 'lucide-react';
+import { LocateFixed, Minus, Plus, ExternalLink, Route, ThermometerSun } from 'lucide-react';
 import type { CSSProperties, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react';
 import type { Coordinates, TripAnalysis } from '../types';
 import './Map.css';
+import { TemperatureLayer } from './TemperatureLayer';
 
 /**
  * A real raster map that uses standard DOM images instead of WebGL.
@@ -16,7 +17,7 @@ const INDIA: Coordinates = { lat: 20.5937, lon: 78.9629 };
 type View = { center: Coordinates; zoom: number };
 type Extent = { width: number; height: number };
 type Stop = { id: string; index: number; label: string; point: Coordinates; details: string };
-type RasterTile = { id: string; x: number; y: number; sourceX: number; sourceY: number; zoom: number };
+type RasterTile = { id: string; x: number; y: number; sourceX: number; sourceY: number; zoom: number; displaySize: number };
 
 function valid(point: Coordinates | undefined | null): point is Coordinates {
   return !!point && Number.isFinite(point.lat) && Number.isFinite(point.lon)
@@ -80,22 +81,32 @@ function routePath(points: Coordinates[] | undefined, view: View, extent: Extent
   }).join('');
 }
 function tilesInView(view: View, extent: Extent): RasterTile[] {
-  const n = 2 ** view.zoom;
-  const p = mercator(view.center, view.zoom);
-  const left = Math.floor((p.x - extent.width / 2) / TILE);
-  const right = Math.floor((p.x + extent.width / 2) / TILE);
-  const top = Math.floor((p.y - extent.height / 2) / TILE);
-  const bottom = Math.floor((p.y + extent.height / 2) / TILE);
+  // Four native raster pixels per screen pixel in compact maps, where plain
+  // 256px tiles look soft. Only fetch what is visible; no tile preloading.
+  // Large desktop/4K canvases retain native-sized tiles to avoid excessive
+  // requests to community-hosted OpenStreetMap servers.
+  const hd = extent.width * extent.height <= 750_000 && view.zoom < MAX_ZOOM;
+  const detail = hd ? 2 : 1;
+  const displaySize = TILE / detail;
+  const z = view.zoom + (hd ? 1 : 0);
+  const n = 2 ** z;
+  const p = mercator(view.center, z);
+  const x0 = p.x / detail;
+  const y0 = p.y / detail;
+  const left = Math.floor((x0 - extent.width / 2) / displaySize);
+  const right = Math.floor((x0 + extent.width / 2) / displaySize);
+  const top = Math.floor((y0 - extent.height / 2) / displaySize);
+  const bottom = Math.floor((y0 + extent.height / 2) / displaySize);
   const tiles: RasterTile[] = [];
   for (let y = Math.max(0, top); y <= Math.min(n - 1, bottom); y += 1) {
     for (let x = left; x <= right; x += 1) {
-      if (tiles.length >= 35) return tiles;
+      if (tiles.length >= 76) return tiles;
       const sourceX = ((x % n) + n) % n;
       tiles.push({
-        id: view.zoom + '-' + x + '-' + y,
-        zoom: view.zoom, sourceX, sourceY: y,
-        x: x * TILE - p.x + extent.width / 2,
-        y: y * TILE - p.y + extent.height / 2,
+        id: z + '-' + x + '-' + y,
+        zoom: z, sourceX, sourceY: y, displaySize,
+        x: x * displaySize - x0 + extent.width / 2,
+        y: y * displaySize - y0 + extent.height / 2,
       });
     }
   }
@@ -145,7 +156,7 @@ function TileImage({ tile, onLoaded }: { tile: RasterTile; onLoaded: () => void 
     ? 'https://tile.openstreetmap.org/' + tile.zoom + '/' + tile.sourceX + '/' + tile.sourceY + '.png'
     : 'https://a.tile.openstreetmap.fr/hot/' + tile.zoom + '/' + tile.sourceX + '/' + tile.sourceY + '.png';
   const style: CSSProperties = { position: 'absolute', left: tile.x, top: tile.y,
-    width: TILE, height: TILE, display: loaded ? 'block' : 'none', pointerEvents: 'none' };
+    width: tile.displaySize, height: tile.displaySize, display: loaded ? 'block' : 'none', pointerEvents: 'none' };
   return <img draggable={false} className="raster-tile" src={uri} alt="" decoding="async" style={style}
     onLoad={() => { setLoaded(true); onLoaded(); }}
     onError={() => { if (provider === 0) { setProvider(1); setLoaded(false); } else setFailed(true); }}/>;
@@ -164,11 +175,19 @@ export function Map({ trips, liveLocation, isDemo = false, previewPoints = [] }:
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hasTile, setHasTile] = useState(false);
   const [mapNote, setMapNote] = useState('');
+  const [mapLayer, setMapLayer] = useState<'temperature' | 'routes'>('temperature');
   const analyzedPoints = useMemo(() => allPoints(trips), [trips]);
   const previewCoords = useMemo(() => previewPoints.map((stop) => stop.point).filter(valid), [previewPoints]);
   const points = analyzedPoints.length ? analyzedPoints : previewCoords;
   const stops = useMemo(() => routeStops(trips), [trips]);
   const mapTiles = useMemo(() => tilesInView(view, extent), [view, extent]);
+  const samplePoints = useMemo(() => {
+    const p = mercator(view.center, view.zoom);
+    // Exactly 9 model samples, following the current viewport. Their
+    // temperatures are interpolated into a smooth overlay, not observed heat.
+    return [0, .5, 1].flatMap((fy) => [0, .5, 1].map((fx) =>
+      fromPixels(p.x + extent.width * (fx - .5), p.y + extent.height * (fy - .5), view.zoom)));
+  }, [view, extent]);
 
   useEffect(() => {
     const node = container.current;
@@ -256,6 +275,8 @@ export function Map({ trips, liveLocation, isDemo = false, previewPoints = [] }:
       <iframe title="OpenStreetMap basemap fallback" className="raster-basemap-frame" src={fallbackUrl(fallbackView, extent, liveLocation)}
         loading="eager" referrerPolicy="strict-origin-when-cross-origin" tabIndex={-1} aria-hidden="true"/>
       {mapTiles.map((tile) => <TileImage key={tile.id} tile={tile} onLoaded={tileLoaded}/>)}
+      <TemperatureLayer active={mapLayer === 'temperature'} points={samplePoints}
+        width={extent.width} height={extent.height}/>
       <svg className="raster-route-overlay" width={extent.width} height={extent.height} viewBox={'0 0 ' + extent.width + ' ' + extent.height} aria-hidden="true">
         {trips.length === 0 && previewCoords.length > 1 && <path d={routePath(previewCoords, view, extent)} className="raster-route-preview"/>}
         {trips.map((trip) => <g key={trip.tripId}>
@@ -281,12 +302,22 @@ export function Map({ trips, liveLocation, isDemo = false, previewPoints = [] }:
           style={{ left: pos.x, top: pos.y }} onClick={() => setSelectedId(stop.id)}>{stop.index || 'S'}</button>;
       })}
     </div>
+    <div className="raster-layer-switch" role="group" aria-label="Map display">
+      <button type="button" className={mapLayer === 'temperature' ? 'selected' : ''}
+        aria-pressed={mapLayer === 'temperature'} onClick={() => setMapLayer('temperature')}>
+        <ThermometerSun size={15} aria-hidden="true"/> Temperature
+      </button>
+      <button type="button" className={mapLayer === 'routes' ? 'selected' : ''}
+        aria-pressed={mapLayer === 'routes'} onClick={() => setMapLayer('routes')}>
+        <Route size={15} aria-hidden="true"/> Routes
+      </button>
+    </div>
     <div className="raster-map-controls">
       <button type="button" aria-label="Zoom in" onClick={() => zoomTo(view.zoom + 1)}><Plus size={16}/></button>
       <button type="button" aria-label="Zoom out" onClick={() => zoomTo(view.zoom - 1)}><Minus size={16}/></button>
       <button type="button" aria-label="Find my location" onClick={locate}><LocateFixed size={16}/></button>
     </div>
-    <div className="raster-map-badge">{isDemo ? 'Demo · OSM' : hasEstimatedTrips ? 'Estimated route · not navigation' : trips.length ? 'AWS routes' : previewPoints.length ? 'AWS places' : 'OSM map'}</div>
+    <div className="raster-map-badge with-switch">{isDemo ? 'Demo · OSM' : hasEstimatedTrips ? 'Estimated route · not navigation' : trips.length ? 'AWS routes' : previewPoints.length ? 'AWS places' : 'OSM map'}</div>
     {previewSelected && <div className="raster-stop-detail" role="status"><button type="button" aria-label="Close stop details" onClick={() => setSelectedId(null)}>×</button><strong>{previewSelected.label}</strong><span>Amazon Location found this place. Straight-line preview only; AWS routes appear after Analyze.</span></div>}
     {selected && <div className="raster-stop-detail" role="status">
       <button type="button" aria-label="Close stop details" onClick={() => setSelectedId(null)}>×</button>
