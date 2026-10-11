@@ -314,6 +314,8 @@ try {
   // without losing the pending itinerary.
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   assert.equal(await page.getByRole('button', { name: 'Settings', exact: true }).getAttribute('aria-current'), 'page');
+  assert.equal(await page.evaluate(() => location.hash), '#/view/settings/landing',
+    'Settings must have its own URL entry for browser Back/Forward');
   const beforeSettingsBack = await page.evaluate(() => ({ state: history.state?.pollutionView, length: history.length }));
   await page.evaluate(() => window.history.back());
   await page.waitForTimeout(450);
@@ -328,6 +330,8 @@ try {
   // Going Back must not create a new history entry and erase Forward.
   assert.equal(await page.evaluate(() => history.state?.pollutionView?.tab), 'today',
     'Back must restore the Today history entry');
+  assert.equal(await page.evaluate(() => location.hash), '',
+    'Back must restore the original root URL rather than lose history state');
   await page.evaluate(() => window.history.forward());
   await page.waitForTimeout(500);
   const afterSettingsForward = await page.evaluate(() => ({
@@ -342,6 +346,8 @@ try {
     undefined, { timeout: 3500 });
   assert.equal(await page.evaluate(() => history.state?.pollutionView?.tab), 'settings',
     'Forward must retain and restore the Settings history entry');
+  assert.equal(await page.evaluate(() => location.hash), '#/view/settings/landing',
+    'Forward must restore the Settings URL entry');
   assert.equal(await page.getByRole('button', { name: 'Settings', exact: true }).getAttribute('aria-current'), 'page',
     'browser Forward must restore Settings');
   await page.getByRole('button', { name: 'Today', exact: true }).click();
