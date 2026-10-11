@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Maximize2 } from 'lucide-react';
+import { Maximize2, Leaf, ShieldCheck } from 'lucide-react';
 import { api } from './api';
 import { BottomNav, type NavTab } from './components/BottomNav';
 import { Drawer } from './components/Drawer';
@@ -355,7 +355,7 @@ export default function App() {
           </div>
         </main>
       ) : (
-      <main className={`main-content global-split-layout ${tab === 'today' && (step === 'manual' || step === 'import') ? 'planner-layout' : tab === 'today' && step === 'landing' && !agenda.events.length ? 'landing-layout' : ''}`}>
+      <main className={`main-content global-split-layout ${tab === 'today' && (step === 'manual' || step === 'import') ? 'planner-layout' : tab === 'today' && step === 'landing' && analysis ? 'results-layout' : tab === 'today' && step === 'landing' && !agenda.events.length ? 'landing-layout' : ''}`}>
         <section className="global-panel-col">
           {isDemo && <div className="demo-banner">DEMO MODE · Sample routes and conditions</div>}
           {content}
@@ -378,6 +378,29 @@ export default function App() {
             }}><ErrorBoundary label="Live map" compact><Map trips={analysis?.trips ?? EMPTY_TRIPS} liveLocation={liveLocation} isDemo={isDemo} previewPoints={previewPoints} /></ErrorBoundary></div>
             <p className="compact-map-note">{analysis?.trips.length ? `${analysis.trips.length} journey${analysis.trips.length === 1 ? '' : 's'} mapped · Click stops for details` : previewPoints.length > 1 ? `${previewPoints.length - 1} stop(s) placed · Dashed straight-line preview; Analyze for actual roads.` : 'Your live position appears here. Add stops and analyze to plot your day.'}</p>
           </div>
+          {tab === 'today' && step === 'landing' && analysis && (
+            <section className="results-impact-panel" aria-label="Today's estimated impact">
+              <div className="results-impact-heading">
+                <span className="results-impact-icon"><Leaf size={19} aria-hidden="true"/></span>
+                <div>
+                  <span className="results-impact-eyebrow">TODAY'S ESTIMATED IMPACT</span>
+                  <h3>{analysis.metrics.exposureReductionPct > 0 ? 'A lighter journey' : 'A well-planned day'}</h3>
+                </div>
+                <ShieldCheck size={20} className="results-impact-shield" aria-hidden="true"/>
+              </div>
+              <div className="results-impact-stats">
+                <div>
+                  <span>Modeled exposure reduction</span>
+                  <strong>{analysis.metrics.exposureReductionPct}%</strong>
+                </div>
+                <div>
+                  <span>Estimated CO₂e saved</span>
+                  <strong>{Math.max(0, -(analysis.metrics.estimatedCo2eChangeKg || 0)).toFixed(1)} <small>kg</small></strong>
+                </div>
+              </div>
+              <p>Environmental impact is modeled, not a measurement of personal exposure.</p>
+            </section>
+          )}
           {tab === 'today' && (step === 'manual' || step === 'import') && (
             <div className="planner-map-review">
               <button type="button" className="primary planner-map-review-button"
