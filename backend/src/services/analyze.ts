@@ -16,7 +16,7 @@ import { scoreRoute } from '../core/exposure';
 import { shiftTime, timeToMinutes, availableMinutes } from '../core/time';
 import { optimizeCandidateSets } from '../core/optimizer';
 
-export const TIME_SHIFT_OPTIONS = [-5, 0, 5] as const;
+export const TIME_SHIFT_OPTIONS = [-30, 0, 30] as const;
 export const ALT_MODE_ORDER: TransportMode[] = ['metro', 'bus', 'car', 'bike', 'walk'];
 const MAX_ENVIRONMENT_SAMPLES = 3;
 
@@ -81,10 +81,10 @@ async function buildCandidateSet(
     jobs.push({ mode: journey.mode, shift, departureTime, includeAlternative: shift === 0 });
   }
 
-  // Transit provider coverage is incomplete in many Indian cities. Never
-  // start speculative bus/metro API calls for a Car or Walk live journey.
-  const safeModes = demoMode ? ALT_MODE_ORDER : (['car', 'walk'] as TransportMode[]);
-  for (const mode of safeModes.filter((mode) => mode !== journey.mode)) {
+  // Every mode can now be selected. Test real transit coverage where the
+  // provider supports it; failed live modes return clearly labeled estimates.
+  // We never auto-recommend an unverified estimated transit connection.
+  for (const mode of ALT_MODE_ORDER.filter((mode) => mode !== journey.mode)) {
     jobs.push({ mode, shift: 0, departureTime: journey.departureTime, includeAlternative: false });
   }
 
@@ -115,6 +115,11 @@ async function buildCandidateSet(
     const limit = result.value.job.includeAlternative ? 3 : 1;
     for (const route of result.value.routes.slice(0, limit)) {
       if (route.mode !== journey.mode && !isRealisticAlternative(route)) continue;
+      // An estimated corridor is useful to explain a chosen mode, but it is
+      // not evidence that a bus or metro actually runs there. Never silently
+      // change someone's mode onto an unverified connection.
+      if (route.mode !== journey.mode && (route.source.startsWith('Planning estimate') ||
+          route.source.includes('not bicycle-verified'))) continue;
       if (route.travelMinutes > availableMinutes(job.departureTime, journey.arriveBy)) continue;
       routeSources.add(route.source);
       routeCandidates.push({ route, job });
@@ -130,7 +135,7 @@ async function buildCandidateSet(
   const originalRoute = routeCandidates.find(({ route, job }) =>
     route.mode === journey.mode && job.shift === 0,
   );
-  if (!originalRoute) throw new Error(`Original ${journey.mode} trip cannot arrive by its fixed appointment`);
+  if (!originalRoute) throw new Error(`The ${journey.mode} trip cannot arrive by the appointment at ${journey.arriveBy || 'the chosen time'}. Leave earlier, allow more travel time, or choose a nearer stop.`);
 
   const scored = await Promise.all(routeCandidates.map(async ({ route, job }) => {
     const routeSamples = sampleRoute(route.geometry.length ? route.geometry : [origin, destination], route.travelMinutes);
@@ -182,7 +187,9 @@ function isUsefulAlternative(candidate: RouteCandidate, original: RouteCandidate
   if (gain <= 0) return false;
   const noExtraTravel = candidate.travelMinutes <= original.travelMinutes;
   const smallShift = Math.abs(candidate.shiftMinutes) <= 5;
-  return gain >= .02 || (noExtraTravel && smallShift);
+  // Show defensible, measurable improvements even when they are below 2%.
+  // A minor positive gain is still useful if it causes no extra travel.
+  return gain >= .005 || (noExtraTravel && smallShift);
 }
 
 function sampleRoute(geometry: Coordinates[], travelMinutes: number) {
