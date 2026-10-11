@@ -64,7 +64,7 @@ export function ImportScreen({ agenda, setAgenda, mode, journeys, setJourneys, m
         </button>)}
       </div>
       {journey.mode === 'bike' && <p className="planner-bike-note">
-        AWS car-road geometry estimates bike time; cycling access and road safety are not verified. Check before riding.
+        AWS car-road geometry estimates bike time. Cycling access and road safety are not verified. Check before riding.
       </p>}
     </div>
   );
