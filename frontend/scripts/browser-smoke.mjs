@@ -158,6 +158,14 @@ try {
 
   await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
   await check('initial home');
+  assert.equal(await page.locator('.compact-map-head h2').textContent(), 'AWS routes',
+    'shared map title must name the AWS routing service');
+  assert.equal(await page.locator('.raster-map-badge').textContent(), 'OSM map',
+    'unplanned map must not claim AWS supplies the basemap');
+  assert(await page.locator('.raster-attribution').getByText('OpenStreetMap').isVisible(),
+    'OpenStreetMap tile attribution must remain visible');
+  assert(await page.locator('.landing-provenance').getByText('Amazon Location · Lambda · Step Functions').isVisible(),
+    'existing landing provenance must name actual AWS services without extra sections');
   // Judge-facing homepage: wider map on the RIGHT without increasing its height.
   assert(await page.locator('.landing-dashboard .landing-hero').isVisible(), 'landing page needs a visible product hero');
   assert.equal(await page.locator('.landing-method-card').count(), 3, 'explain the product in three credible steps');
@@ -224,6 +232,8 @@ try {
   await page.getByRole('button', { name: 'Expand map to full page' }).click();
   assert(await page.locator('.fullpage-map-screen').isVisible(),
     'the small map header must open full-page route map');
+  assert.equal(await page.locator('.fullpage-map-header h2').textContent(), 'AWS route view',
+    'full-page map must identify AWS routing without implying AWS basemap tiles');
   assert(await page.getByRole('button', { name: 'Map', exact: true }).getAttribute('aria-current') === 'page',
     'expanding map must highlight Map tab');
   await page.getByRole('button', { name: 'Back to Today' }).click();
@@ -467,6 +477,8 @@ try {
   // Map must be a true full-page map and active highlight must follow it.
   await page.waitForFunction(() =>
     document.querySelectorAll('.raster-stop-marker.preview').length >= 3, null, { timeout: 5000 });
+  assert.equal(await page.locator('.raster-map-badge').textContent(), 'AWS places',
+    'geocoded previews must name the actual Amazon Location Places capability');
   await page.getByRole('button', { name: 'Map', exact: true }).click();
   assert(await page.locator('.fullpage-map-screen').isVisible(), 'Map tab must expand shared map to full-page view');
   assert.equal(await page.locator('[data-map-engine="dom-raster"]').count(), 1,
@@ -597,6 +609,10 @@ try {
   assert.equal(await page.locator('.results-layout').evaluate((main) => main.scrollTop), 0,
     'the shared main scrollport must also reset on entering analyzed Today');
   await check('direct live Bike Analyze from stop editor');
+  assert.equal(await page.locator('.raster-map-badge').textContent(), 'AWS routes',
+    'live analyzed geometries must identify Amazon Location Routes');
+  assert(await page.locator('.raster-attribution').getByText('OpenStreetMap').isVisible(),
+    'AWS-routed journeys still require OpenStreetMap basemap credit');
   // Reload clears an unsubmitted planner draft before exercising the demo entry point.
   await page.reload({ waitUntil: 'domcontentloaded' });
   await check('fresh home before demo');
@@ -608,6 +624,10 @@ try {
   await page.locator('.raster-stop-marker').last().click();
   assert(await page.locator('.raster-stop-detail').isVisible(), 'stop click must show details');
   await check('analyzed demo route');
+  assert.equal(await page.locator('.compact-map-head h2').textContent(), 'Demo map',
+    'controlled demo must not claim its simulated routes are live AWS routes');
+  assert.equal(await page.locator('.raster-map-badge').textContent(), 'Demo · OSM',
+    'demo badge must preserve OSM attribution rather than mislabel sample routes');
   // Results use a dedicated left scrollport: scrolling journey cards must never
   // move the interactive map, and the dock must not obscure the last card.
   assert(await page.locator('.results-layout .results-timeline').isVisible(),
