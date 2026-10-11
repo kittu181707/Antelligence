@@ -249,7 +249,7 @@ export function Map({ trips, liveLocation, isDemo = false, previewPoints = [] }:
   };
   const selected = stops.find((stop) => stop.id === selectedId);
   const previewSelected = !trips.length ? previewPoints.find((stop) => stop.id === selectedId) : undefined;
-  return <div className="raster-map" ref={container} aria-label="Interactive route map" data-map-engine="dom-raster" data-map-ready={hasTile ? 'true' : 'fallback'}>
+  return <div className="raster-map" ref={container} aria-label="Route map: OpenStreetMap tiles, Amazon Location routing" data-map-engine="dom-raster" data-map-ready={hasTile ? 'true' : 'fallback'}>
     <div className="raster-map-viewport" onPointerDown={onPointerDown} onPointerMove={onPointerMove}
       onPointerUp={onPointerUp} onPointerCancel={onPointerUp} onWheel={onWheel}>
       <iframe title="OpenStreetMap basemap fallback" className="raster-basemap-frame" src={fallbackUrl(fallbackView, extent, liveLocation)}
@@ -285,8 +285,8 @@ export function Map({ trips, liveLocation, isDemo = false, previewPoints = [] }:
       <button type="button" aria-label="Zoom out" onClick={() => zoomTo(view.zoom - 1)}><Minus size={16}/></button>
       <button type="button" aria-label="Find my location" onClick={locate}><LocateFixed size={16}/></button>
     </div>
-    <div className="raster-map-badge">{isDemo ? 'Demo route · ' : ''}Live map</div>
-    {previewSelected && <div className="raster-stop-detail" role="status"><button type="button" aria-label="Close stop details" onClick={() => setSelectedId(null)}>×</button><strong>{previewSelected.label}</strong><span>Place located using Amazon Location. Dashed segment is a straight-line preview; road routing appears after Analyze.</span></div>}
+    <div className="raster-map-badge">{isDemo ? 'Demo · OSM' : trips.length ? 'AWS routes' : previewPoints.length ? 'AWS places' : 'OSM map'}</div>
+    {previewSelected && <div className="raster-stop-detail" role="status"><button type="button" aria-label="Close stop details" onClick={() => setSelectedId(null)}>×</button><strong>{previewSelected.label}</strong><span>Amazon Location found this place. Straight-line preview only; AWS routes appear after Analyze.</span></div>}
     {selected && <div className="raster-stop-detail" role="status">
       <button type="button" aria-label="Close stop details" onClick={() => setSelectedId(null)}>×</button>
       <strong>{selected.index === 0 ? 'Start' : 'Stop ' + selected.index} · {selected.label}</strong>

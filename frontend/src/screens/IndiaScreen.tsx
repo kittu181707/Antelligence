@@ -191,7 +191,7 @@ export function IndiaScreen() {
         </div>}
         {status === 'loading' && <div className="map-loading">Loading Amazon Location map…</div>}
         <span className={`map-live-badge ${status === 'fallback' ? 'fallback' : ''}`}>
-          {status === 'live' ? 'AWS MAP · MODELED CITY DATA' : 'CITY SAMPLE VIEW · MODEL DATA'}
+          {status === 'live' ? 'AMAZON LOCATION MAP' : 'CITY SAMPLE VIEW · MODEL DATA'}
         </span>
       </div>
     </div>

@@ -96,7 +96,7 @@ export function TodayScreen({
                   </article>
                   <article className="landing-method-card">
                     <div className="landing-method-top"><span className="landing-method-icon"><Navigation2 size={19}/></span><span className="landing-method-number">02</span></div>
-                    <h4>Explore better routes</h4>
+                    <h4>Explore AWS routes</h4>
                     <p>Compare feasible journeys using forecast environmental conditions.</p>
                   </article>
                   <article className="landing-method-card">
@@ -107,7 +107,7 @@ export function TodayScreen({
                 </div>
               </section>
               <div className="landing-provenance">
-                <span><span className="landing-provenance-dot"/> Live routing via Amazon Location and AWS</span>
+                <span><span className="landing-provenance-dot"/> Amazon Location · Lambda · Step Functions</span>
                 <span>Environmental readings are modeled estimates, not personal exposure measurements.</span>
               </div>
             </>
@@ -151,7 +151,7 @@ export function TodayScreen({
           {analysis && m && (
             <div className="dashboard-bottom">
               <div className="dashboard-card analysis-card">
-                <h3><ShieldCheck size={17} aria-hidden="true"/> Journey analysis</h3>
+                <h3><ShieldCheck size={17} aria-hidden="true"/> AWS route analysis</h3>
                 <section className="exposure-hero">
                   <div><span>Original</span><strong>{m.originalExposureIndex}</strong></div>
                   <ArrowRight/>
@@ -167,7 +167,7 @@ export function TodayScreen({
               </div>
 
               <div className="dashboard-card comparison-card">
-                <h3><Route size={17} aria-hidden="true"/> Route comparison</h3>
+                <h3><Route size={17} aria-hidden="true"/> AWS route options</h3>
                 {analysis.changes.length > 0 ? (
                   <div className="change-list" style={{ margin: 0 }}>
                     {analysis.changes.slice(0, 1).map((trip) => (

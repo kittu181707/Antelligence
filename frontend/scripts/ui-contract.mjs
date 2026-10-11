@@ -89,7 +89,29 @@ assert(liveSnapshot.includes('navigator.geolocation'), 'live snapshot must suppo
 assert(api.includes('/api/runtime-config') && api.includes('/api/environment/current'), 'live frontend APIs missing');
 assert(api.includes('/api/places/resolve') && template.includes('ResolvePlaceFunction'), 'live place geocoding endpoint missing');
 assert(map.includes('raster-route-preview') && app.includes('previewPoints={previewPoints}'), 'map must preview typed stops before analysis');
-assert(travel.includes('Use Car for all journeys') && travel.includes('Live Bus/Metro routes'), 'unsupported live transit must retain an actionable fallback on the stops page');
+const historyScreen = read('src/screens/HistoryScreen.tsx');
+const overviewScreen = read('src/screens/OverviewScreen.tsx');
+const analysisScreen = read('src/screens/AnalysisScreen.tsx');
+assert(app.includes("'AWS route view'") && app.includes("'AWS routes'") &&
+  app.includes("'Demo route map'") && app.includes("'Demo map'"),
+  'shared map titles must name AWS routing but keep controlled demos distinct');
+assert(map.includes("'AWS routes'") && map.includes("'AWS places'") &&
+  map.includes("'OSM map'") && map.includes("'Demo · OSM'") &&
+  map.includes('© OpenStreetMap') && map.includes('tile.openstreetmap.org'),
+  'AWS route/place badges must not misrepresent OpenStreetMap tiles or demo routes');
+assert(today.includes('Amazon Location · Lambda · Step Functions') &&
+  today.includes('AWS route analysis') && today.includes('Explore AWS routes') &&
+  overviewScreen.includes('AWS STEP FUNCTIONS') &&
+  analysisScreen.includes('AWS Step Functions'),
+  'existing route and workflow labels must use real AWS service names');
+assert(planner.includes('Find place via Amazon Location') &&
+  planner.includes('AWS car-road geometry') &&
+  historyScreen.includes('DynamoDB plans') &&
+  india.includes('AMAZON LOCATION MAP') && india.includes('CITY SAMPLE VIEW · MODEL DATA'),
+  'place search, persistence and AWS-map names must stay accurate, including fallbacks');
+assert(liveSnapshot.includes('Tomorrow.io') && liveSnapshot.includes('Open-Meteo'),
+  'environment providers must not be relabeled as AWS data');
+assert(travel.includes('Use Car for all journeys') && travel.includes('AWS Bus/Metro routes'), 'unsupported live transit must retain an actionable fallback on the stops page');
 const styles = read('src/styles.css');
 assert(styles.includes('position: static !important') && styles.includes('.planner-travel-modes'), 'direct planner CTA and inline mode selector must fit without overlaying form');
 assert(app.includes('planner-layout') && app.includes('planner-map-review-button') &&

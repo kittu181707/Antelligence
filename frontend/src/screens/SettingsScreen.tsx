@@ -19,7 +19,7 @@ export function SettingsScreen({ maxExtra, setMaxExtra }: { maxExtra: number; se
     </section>
     <section className="info-card" style={{ marginTop: 16 }}>
       <strong>What changes when you adjust this?</strong>
-      <p>We rerank feasible route and departure alternatives within your selected extra-travel limit. The app does not optimize CO₂e and exposure as though they were the same metric; emissions are reported separately.</p>
+      <p>We rerank Amazon Location routes and departure choices within your travel limit. CO₂e is reported separately, not optimized with exposure.</p>
       <p>All results are modeled estimates for decision support, not measurements of your personal dose or proof of improved health.</p>
     </section>
   </div>;

@@ -57,14 +57,14 @@ export function ImportScreen({ agenda, setAgenda, mode, journeys, setJourneys, m
         {modes.map((option) => <button type="button" key={option.value}
           aria-label={`${name} by ${option.label}`}
           aria-pressed={journey.mode === option.value}
-          title={option.value === 'bike' ? 'Estimated bike travel using AWS walking/road geometry. Route may contain segments unsuitable for cycling; access and safety are NOT verified' : option.label}
+          title={option.value === 'bike' ? 'Estimated bike time on AWS car-road geometry; cycling access and road safety are NOT verified' : option.label}
           className={journey.mode === option.value ? 'selected' : ''}
           onClick={() => editJourney(journey.tripId, { mode: option.value as TransportMode })}>
           {option.label}
         </button>)}
       </div>
       {journey.mode === 'bike' && <p className="planner-bike-note">
-        Bike times use estimated speeds on walking or road-network geometry. Cycling access and road safety are not verified. Check the route before riding.
+        AWS car-road geometry estimates bike time. Cycling access and road safety are not verified. Check before riding.
       </p>}
     </div>
   );
@@ -99,7 +99,7 @@ export function ImportScreen({ agenda, setAgenda, mode, journeys, setJourneys, m
     <div className="screen-title">
       <span className="welcome-kicker">PERSONALIZED DAILY ROUTES</span>
       <h1>Plan your day</h1>
-      <p>Add stops, choose how you travel, and optimize your whole day in one step. Each location appears on the map as you type.</p>
+      <p>Choose stops and travel modes. Amazon Location finds places and routes for your day.</p>
     </div>
     <div className="itinerary-section">
       <div className="itinerary-topline">
@@ -128,7 +128,7 @@ export function ImportScreen({ agenda, setAgenda, mode, journeys, setJourneys, m
         <div className="stop-inputs">
           <input aria-label={`Stop ${index + 1} name`} placeholder="Stop name (Gym, Work, Lunch…)" value={event.title}
             onChange={(e) => update(event.eventId, { title: e.target.value })}/>
-          <input aria-label={`Stop ${index + 1} destination`} placeholder="Address or place to find on map" value={event.location}
+          <input aria-label={`Stop ${index + 1} destination`} placeholder="Find place via Amazon Location" value={event.location}
             onChange={(e) => update(event.eventId, { location: e.target.value })}/>
           <div className="stop-time-grid">
             <label>Arrive <input aria-label={`Stop ${index + 1} arrival`} type="time" value={event.start}
@@ -155,7 +155,7 @@ export function ImportScreen({ agenda, setAgenda, mode, journeys, setJourneys, m
           className={maxExtra === minutes ? 'selected' : ''}
           onClick={() => setMaxExtra(minutes)}>{minutes ? '+' : ''}{minutes} min</button>)}</div>
     </section>
-    {hasTransit && <div className="route-warning"><Info size={17}/> Live Bus/Metro routes may be unavailable in your city. If analysis cannot find a route, try Car or Walk.
+    {hasTransit && <div className="route-warning"><Info size={17}/> AWS Bus/Metro routes may be unavailable in your city. If analysis cannot find a route, try Car or Walk.
       <button type="button" className="secondary" onClick={() => setJourneys(journeys.map((journey) =>
         ({ ...journey, mode: 'car' })))}>Use Car for all journeys</button>
     </div>}
