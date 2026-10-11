@@ -118,6 +118,44 @@ try {
     assert(errors.length === 0, label + ': uncaught browser exceptions: ' + errors.join('; '));
   };
 
+  // Verify that updated live chips never force "today" into a third line.
+  // The same topbar is mounted on landing, planner, Map, Settings and results.
+  const assertCompactHeader = async (label) => {
+    const layout = await page.evaluate(() => {
+      const header = document.querySelector('.app-topbar');
+      const title = document.querySelector('.app-welcome h1');
+      const subtitle = title?.querySelector('span');
+      const welcome = document.querySelector('.app-welcome');
+      const environment = document.querySelector('.top-environment');
+      if (!header || !title || !subtitle || !welcome || !environment) return null;
+      const titleRect = title.getBoundingClientRect();
+      const subtitleRect = subtitle.getBoundingClientRect();
+      const welcomeRect = welcome.getBoundingClientRect();
+      const envRect = environment.getBoundingClientRect();
+      return {
+        viewport: window.innerWidth,
+        headingLines: titleRect.height / parseFloat(getComputedStyle(title).lineHeight),
+        sentenceLines: subtitleRect.height / parseFloat(getComputedStyle(subtitle).lineHeight),
+        headerHeight: header.getBoundingClientRect().height,
+        horizontalOverflow: header.scrollWidth > header.clientWidth + 2,
+        overlaps: window.innerWidth > 760
+          ? welcomeRect.right > envRect.left + 2
+          : welcomeRect.bottom > envRect.top + 2,
+        chips: environment.querySelectorAll('.env-chip').length,
+      };
+    });
+    assert(layout && layout.chips >= 5,
+      label + ': test requires populated live environment chips: ' + JSON.stringify(layout));
+    assert(layout.headingLines <= 2.08 && layout.sentenceLines <= 1.08,
+      label + ': shared greeting must use at most two lines with the full second sentence intact: ' + JSON.stringify(layout));
+    assert(!layout.horizontalOverflow && !layout.overlaps,
+      label + ': live chips must not overlap or overflow the greeting: ' + JSON.stringify(layout));
+    if (layout.viewport >= 1024) {
+      assert(layout.headerHeight <= 108,
+        label + ': header wastes too much vertical space: ' + JSON.stringify(layout));
+    }
+  };
+
   await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
   await check('initial home');
   // Judge-facing homepage: wider map on the RIGHT without increasing its height.
@@ -218,6 +256,18 @@ try {
   // Remain completely idle during initial delayed GPS/environment update window.
   await page.waitForTimeout(5000);
   await check('six-second untouched home');
+  for (const width of [1365, 1280, 1024, 900, 768, 390]) {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 768 });
+    await assertCompactHeader('live environment at ' + width + 'px');
+  }
+  await page.setViewportSize({ width: 1365, height: 768 });
+  // All main pages reuse this header, so also protect against tab-specific overrides.
+  await page.getByRole('button', { name: 'Map', exact: true }).click();
+  await assertCompactHeader('Map tab with loaded live conditions');
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await assertCompactHeader('Settings tab with loaded live conditions');
+  await page.getByRole('button', { name: 'Today', exact: true }).click();
+  await assertCompactHeader('Today tab after navigation');
   await page.screenshot({ path: '/tmp/pollution-home-desktop.png', fullPage: true });
 
   for (let i = 0; i < 6; i += 1) {
