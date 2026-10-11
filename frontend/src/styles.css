@@ -1511,6 +1511,35 @@ body { overflow-x: hidden; }
   border-top-color: transparent;
   animation: analysis-spin 4.5s linear infinite;
 }
+/* Small, glassy objects are attached to each ring and orbit with it.
+   Equal-and-opposite counter rotation keeps each symbol upright. */
+.analysis-orbit-object {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 27px;
+  height: 27px;
+  margin-top: -13.5px;
+  margin-left: -13.5px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(177, 250, 207, .55);
+  border-radius: 50%;
+  background: rgba(18, 86, 65, .91);
+  color: #cdffe3;
+  box-shadow: 0 0 15px rgba(61, 226, 158, .25);
+  animation: analysis-spin 6s linear infinite reverse;
+}
+.analysis-orbit-circle.orbit-two .analysis-orbit-object {
+  top: 50%;
+  left: 100%;
+  animation: analysis-spin 8s linear infinite;
+}
+.analysis-orbit-circle.orbit-three .analysis-orbit-object {
+  top: 100%;
+  left: 50%;
+  animation: analysis-spin 4.5s linear infinite reverse;
+}
 .analysis-orbit-leaf {
   color: #c3fbdc;
   filter: drop-shadow(0 0 17px rgba(52, 211, 153, .55));
