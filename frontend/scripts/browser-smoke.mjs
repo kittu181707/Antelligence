@@ -306,18 +306,15 @@ try {
   assert.equal(await page.getByRole('button', { name: 'Settings', exact: true }).getAttribute('aria-current'), 'page');
   await page.goBack();
   await page.locator('.landing-hero').waitFor({ state: 'visible' });
-  console.log('settings-before-forward', await page.evaluate(() => ({
-    location: location.href, history: history.length, state: history.state,
-    active: document.querySelector('.bottom-nav button[aria-current="page"]')?.textContent,
-  })));
-  const forwardNavigation = await page.goForward();
-  await page.waitForTimeout(250);
-  console.log('settings-after-forward', await page.evaluate(() => ({
-    location: location.href, history: history.length, state: history.state,
-    active: document.querySelector('.bottom-nav button[aria-current="page"]')?.textContent,
-  })), 'navigation', Boolean(forwardNavigation));
-  await page.waitForFunction(() => document.querySelector('.bottom-nav button[aria-current="page"]')?.textContent?.includes('Settings'),
-    undefined, { timeout: 3000 });
+  // Going Back must not create a new history entry and erase Forward.
+  assert.equal(await page.evaluate(() => history.state?.pollutionView?.tab), 'today',
+    'Back must restore the Today history entry');
+  await page.goForward();
+  await page.waitForFunction(() =>
+    document.querySelector('.bottom-nav button[aria-current="page"]')?.textContent?.includes('Settings'),
+    undefined, { timeout: 5000 });
+  assert.equal(await page.evaluate(() => history.state?.pollutionView?.tab), 'settings',
+    'Forward must retain and restore the Settings history entry');
   assert.equal(await page.getByRole('button', { name: 'Settings', exact: true }).getAttribute('aria-current'), 'page',
     'browser Forward must restore Settings');
   await page.getByRole('button', { name: 'Today', exact: true }).click();
