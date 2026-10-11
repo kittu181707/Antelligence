@@ -314,6 +314,8 @@ try {
   // without losing the pending itinerary.
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   assert.equal(await page.getByRole('button', { name: 'Settings', exact: true }).getAttribute('aria-current'), 'page');
+  assert.equal(await page.evaluate(() => location.hash), '#/settings/landing',
+    'Settings must have its own browser-history address');
   const beforeSettingsBack = await page.evaluate(() => ({ state: history.state?.pollutionView, length: history.length }));
   await page.evaluate(() => window.history.back());
   await page.waitForTimeout(450);
@@ -326,6 +328,8 @@ try {
   console.log('Settings Back diagnostics:', JSON.stringify({ beforeSettingsBack, afterSettingsBack }));
   await page.locator('.landing-hero').waitFor({ state: 'visible', timeout: 3500 });
   // Going Back must not create a new history entry and erase Forward.
+  assert.equal(await page.evaluate(() => location.hash), '#/today/landing',
+    'Back must restore the distinct Today history URL');
   assert.equal(await page.evaluate(() => history.state?.pollutionView?.tab), 'today',
     'Back must restore the Today history entry');
   await page.evaluate(() => window.history.forward());
@@ -340,6 +344,8 @@ try {
   await page.waitForFunction(() =>
     document.querySelector('.bottom-nav button[aria-current="page"]')?.textContent?.includes('Settings'),
     undefined, { timeout: 3500 });
+  assert.equal(await page.evaluate(() => location.hash), '#/settings/landing',
+    'Forward must restore the distinct Settings history URL');
   assert.equal(await page.evaluate(() => history.state?.pollutionView?.tab), 'settings',
     'Forward must retain and restore the Settings history entry');
   assert.equal(await page.getByRole('button', { name: 'Settings', exact: true }).getAttribute('aria-current'), 'page',

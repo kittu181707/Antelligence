@@ -32,6 +32,19 @@ type BrowserView = { tab: NavTab; step: Step };
 const DEFAULT_VIEW: BrowserView = { tab: 'today', step: 'landing' };
 const HISTORY_KEY = 'pollutionView';
 
+function viewHash(view: BrowserView): string {
+  return '#/' + view.tab + '/' + view.step;
+}
+
+function hashBrowserView(): BrowserView | null {
+  if (typeof window === 'undefined') return null;
+  const parts = window.location.hash.match(/^#\/([^/]+)\/([^/]+)$/);
+  if (!parts) return null;
+  const tab = parts[1] as NavTab;
+  const step = parts[2] as Step;
+  return NAV_TABS.includes(tab) && STEPS.includes(step) ? { tab, step } : null;
+}
+
 function browserView(state: unknown): BrowserView | null {
   if (!state || typeof state !== 'object') return null;
   const view = (state as Record<string, unknown>)[HISTORY_KEY];
@@ -44,7 +57,7 @@ function browserView(state: unknown): BrowserView | null {
 
 function initialBrowserView(): BrowserView {
   if (typeof window === 'undefined') return DEFAULT_VIEW;
-  const saved = browserView(window.history.state);
+  const saved = browserView(window.history.state) || hashBrowserView();
   if (!saved) return DEFAULT_VIEW;
   // Full plans are held in session React state, not persisted to history.
   // Never restore a result-only screen with no analysis after a hard reload.
@@ -90,7 +103,7 @@ export default function App() {
   // No user itinerary, private data or API responses are stored in history.
   useEffect(() => {
     const onPopState = (event: PopStateEvent) => {
-      const next = browserView(event.state) || DEFAULT_VIEW;
+      const next = browserView(event.state) || hashBrowserView() || DEFAULT_VIEW;
       setTab(next.tab);
       setStep((previous) =>
         ['final', 'accepted', 'changes', 'overview'].includes(next.step) && !analysis ? 'landing' : next.step);
@@ -103,10 +116,15 @@ export default function App() {
   // Seed the first entry once. Never write history in response to popstate:
   // an automatic push there would erase the user's Forward stack.
   useLayoutEffect(() => {
-    if (browserView(window.history.state)) return;
+    const current = browserView(window.history.state);
+    if (current?.tab === tab && current.step === step && window.location.hash === viewHash(current)) return;
     const state = window.history.state && typeof window.history.state === 'object'
       ? window.history.state : {};
-    window.history.replaceState({ ...state, [HISTORY_KEY]: { tab, step } }, '', window.location.href);
+    // Distinct same-document URLs prevent Chrome from collapsing or skipping
+    // otherwise identical path entries while preserving normal SPA navigation.
+    const view = current || { tab, step };
+    window.history.replaceState({ ...state, [HISTORY_KEY]: view },
+      '', window.location.pathname + window.location.search + viewHash(view));
   }, []);
 
   const navigate = (nextTab: NavTab, nextStep: Step) => {
@@ -115,7 +133,7 @@ export default function App() {
       const state = window.history.state && typeof window.history.state === 'object'
         ? window.history.state : {};
       window.history.pushState({ ...state, [HISTORY_KEY]: { tab: nextTab, step: nextStep } },
-        '', window.location.href);
+        '', window.location.pathname + window.location.search + viewHash({ tab: nextTab, step: nextStep }));
     }
     setTab(nextTab);
     setStep(nextStep);
