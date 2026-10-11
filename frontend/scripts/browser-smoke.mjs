@@ -84,7 +84,7 @@ try {
       if (!submitted.demoMode) {
         // Browser tests prove the modal persists while a real request is pending,
         // animates through stages, and disappears on both success and failure.
-        await new Promise((resolve) => setTimeout(resolve, 2500));
+        await new Promise((resolve) => setTimeout(resolve, 4500));
         if (rejectNextLiveAnalysis) {
           rejectNextLiveAnalysis = false;
           await route.fulfill({ status: 503, contentType: 'application/json',
@@ -458,6 +458,16 @@ try {
     'planner must remain mounted behind the loading overlay');
   assert.equal(await overlay.getAttribute('role'), 'dialog');
   assert.equal(await overlay.getAttribute('aria-modal'), 'true');
+  // Observe the short-lived check immediately. Expensive layout/animation
+  // assertions below should not miss it while the mocked API is pending.
+  const firstStage = await overlay.locator('.analysis-single-step strong').textContent();
+  const firstIndex = Number(await overlay.locator('[data-analysis-step]').getAttribute('data-stage-index'));
+  await overlay.locator('[data-analysis-tick]').waitFor({ state: 'visible', timeout: 2800 });
+  await page.waitForFunction((previous) =>
+    Number(document.querySelector('[data-analysis-step]')?.getAttribute('data-stage-index')) > previous,
+    firstIndex, { timeout: 3000 });
+  const laterStage = await overlay.locator('.analysis-single-step strong').textContent();
+  assert(firstStage !== laterStage, 'the checked step must disappear and next step take its place');
   assert.equal(await overlay.locator('.analysis-overlay-card').count(), 0,
     'analysis must not appear inside the old white login-style card');
   assert.equal(await overlay.locator('.analysis-orbit-leaf').count(), 1,
@@ -499,15 +509,8 @@ try {
     visuals.viewport && visuals.ringAnimation === 'analysis-spin' &&
     visuals.ringsInfinite && visuals.iconsInfinite,
     'full-screen blurred backdrop, transparent center and moving rings required: ' + JSON.stringify(visuals));
-  const firstStage = await overlay.locator('.analysis-single-step strong').textContent();
-  const firstIndex = Number(await overlay.locator('[data-analysis-step]').getAttribute('data-stage-index'));
-  await overlay.locator('[data-analysis-tick]').waitFor({ state: 'visible', timeout: 1700 });
   assert.equal(await overlay.locator('[data-analysis-step]').count(), 1,
     'tick must appear in the same step instead of a multi-step list');
-  await page.waitForFunction((previous) => Number(document.querySelector('[data-analysis-step]')?.getAttribute('data-stage-index')) > previous,
-    firstIndex, { timeout: 2500 });
-  const laterStage = await overlay.locator('.analysis-single-step strong').textContent();
-  assert(firstStage !== laterStage, 'the checked step must disappear and next step take its place');
   await page.screenshot({ path: '/tmp/pollution-analysis-overlay.png', fullPage: true });
   await overlay.waitFor({ state: 'detached', timeout: 9000 });
   assert(await page.locator('.itinerary-editor .error-banner').getByText('Temporary routing outage.', { exact: false }).isVisible(),
