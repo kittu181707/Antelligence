@@ -53,6 +53,10 @@ assert(app.includes('LiveEnvironmentSnapshot'), 'shared top bar must show real e
 assert(entryFile.includes('<ErrorBoundary') && app.includes('<ErrorBoundary label="Live map"') && app.includes('<ErrorBoundary label="Live conditions"'), 'map and live conditions errors must not cause a white screen');
 assert(errorBoundary.includes('getDerivedStateFromError') && errorBoundary.includes('Try again'), 'render crash must present a recoverable UI');
 assert(app.includes('app-topbar') && app.includes('global-map-col'), 'all pages must use the shared header and compact map');
+assert(app.includes("VIEW_HASH_PREFIX = '#/view/'") &&
+  app.includes('browserViewUrl(nextTab, nextStep)') &&
+  app.includes('browserView(event.state) || hashBrowserView() || DEFAULT_VIEW'),
+  'SPA browser history must use distinct safe URL entries with popstate fallback');
 const sharedHeaderStyles = read('src/styles.css');
 const wordmark = readFileSync(join(root, 'public/antelligence-wordmark.png'));
 assert(wordmark.length === 95195 &&
