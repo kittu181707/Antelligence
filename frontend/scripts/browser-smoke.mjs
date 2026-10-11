@@ -84,7 +84,7 @@ try {
       if (!submitted.demoMode) {
         // Browser tests prove the modal persists while a real request is pending,
         // animates through stages, and disappears on both success and failure.
-        await new Promise((resolve) => setTimeout(resolve, 2500));
+        await new Promise((resolve) => setTimeout(resolve, 4500));
         if (rejectNextLiveAnalysis) {
           rejectNextLiveAnalysis = false;
           await route.fulfill({ status: 503, contentType: 'application/json',
@@ -458,14 +458,33 @@ try {
     'planner must remain mounted behind the loading overlay');
   assert.equal(await overlay.getAttribute('role'), 'dialog');
   assert.equal(await overlay.getAttribute('aria-modal'), 'true');
+  // Observe the short-lived check immediately. Expensive layout/animation
+  // assertions below should not miss it while the mocked API is pending.
+  const firstStage = await overlay.locator('.analysis-single-step strong').textContent();
+  const firstIndex = Number(await overlay.locator('[data-analysis-step]').getAttribute('data-stage-index'));
+  await overlay.locator('[data-analysis-tick]').waitFor({ state: 'visible', timeout: 2800 });
+  await page.waitForFunction((previous) =>
+    Number(document.querySelector('[data-analysis-step]')?.getAttribute('data-stage-index')) > previous,
+    firstIndex, { timeout: 3000 });
+  const laterStage = await overlay.locator('.analysis-single-step strong').textContent();
+  assert(firstStage !== laterStage, 'the checked step must disappear and next step take its place');
   assert.equal(await overlay.locator('.analysis-overlay-card').count(), 0,
     'analysis must not appear inside the old white login-style card');
   assert.equal(await overlay.locator('.analysis-orbit-leaf').count(), 1,
     'only the central leaf should appear in the orbit animation');
   assert.equal(await overlay.locator('.analysis-orbit-circle').count(), 3,
     'the central leaf should be surrounded by three rotating rings');
-  assert.equal(await overlay.locator('.analysis-orbit-satellite').count(), 0,
-    'no route/weather satellite symbols should surround the leaf');
+  assert.equal(await overlay.locator('.analysis-orbit-object').count(), 3,
+    'three small route, weather, and leaf icons should orbit around the central leaf');
+  for (const ring of ['one', 'two', 'three']) {
+    assert.equal(await overlay.locator('.analysis-orbit-circle.orbit-' + ring + ' > .analysis-orbit-object').count(), 1,
+      'each rotating circle must carry exactly one orbiting icon');
+  }
+  const orbitStart = await overlay.locator('.orbit-one .analysis-orbit-object').boundingBox();
+  await page.waitForTimeout(220);
+  const orbitEnd = await overlay.locator('.orbit-one .analysis-orbit-object').boundingBox();
+  assert(orbitStart && orbitEnd && Math.hypot(orbitEnd.x - orbitStart.x, orbitEnd.y - orbitStart.y) > 3,
+    'the small icon must actually move along its circular path, not just float in place');
   assert.equal(await overlay.locator('[data-analysis-step]').count(), 1,
     'only one current step should be rendered');
   const visuals = await overlay.evaluate((element) => {
@@ -479,21 +498,19 @@ try {
       panelTransparent: contentStyle.backgroundColor === 'rgba(0, 0, 0, 0)',
       panelBorder: contentStyle.borderTopWidth,
       ringAnimation: ringStyle.animationName,
+      ringsInfinite: [...element.querySelectorAll('.analysis-orbit-circle')].every((item) =>
+        getComputedStyle(item).animationIterationCount === 'infinite'),
+      iconsInfinite: [...element.querySelectorAll('.analysis-orbit-object')].every((item) =>
+        getComputedStyle(item).animationIterationCount === 'infinite'),
       viewport: Math.abs(element.getBoundingClientRect().height - window.innerHeight) < 2,
     };
   });
   assert(visuals.blurred && visuals.panelTransparent && visuals.panelBorder === '0px' &&
-    visuals.viewport && visuals.ringAnimation === 'analysis-spin',
+    visuals.viewport && visuals.ringAnimation === 'analysis-spin' &&
+    visuals.ringsInfinite && visuals.iconsInfinite,
     'full-screen blurred backdrop, transparent center and moving rings required: ' + JSON.stringify(visuals));
-  const firstStage = await overlay.locator('.analysis-single-step strong').textContent();
-  const firstIndex = Number(await overlay.locator('[data-analysis-step]').getAttribute('data-stage-index'));
-  await overlay.locator('[data-analysis-tick]').waitFor({ state: 'visible', timeout: 1700 });
   assert.equal(await overlay.locator('[data-analysis-step]').count(), 1,
     'tick must appear in the same step instead of a multi-step list');
-  await page.waitForFunction((previous) => Number(document.querySelector('[data-analysis-step]')?.getAttribute('data-stage-index')) > previous,
-    firstIndex, { timeout: 2500 });
-  const laterStage = await overlay.locator('.analysis-single-step strong').textContent();
-  assert(firstStage !== laterStage, 'the checked step must disappear and next step take its place');
   await page.screenshot({ path: '/tmp/pollution-analysis-overlay.png', fullPage: true });
   await overlay.waitFor({ state: 'detached', timeout: 9000 });
   assert(await page.locator('.itinerary-editor .error-banner').getByText('Temporary routing outage.', { exact: false }).isVisible(),

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle2, Leaf } from 'lucide-react';
+import { CheckCircle2, CloudSun, Leaf, Route } from 'lucide-react';
 
 // AWS returns one final response, not per-stage progress events.
 // Intermediate ticks are visual transitions, not verified server work.
@@ -36,9 +36,15 @@ export function AnalysisScreen({ completed = false }: { completed?: boolean }) {
       <div className="analysis-overlay-content">
         <h2 id="analysis-overlay-title" className="analysis-visually-hidden">Analyzing and optimizing your day</h2>
         <div className="analysis-orbit" aria-hidden="true">
-          <span className="analysis-orbit-circle orbit-one"/>
-          <span className="analysis-orbit-circle orbit-two"/>
-          <span className="analysis-orbit-circle orbit-three"/>
+          <span className="analysis-orbit-circle orbit-one">
+            <span className="analysis-orbit-object"><Route size={16} strokeWidth={1.9}/></span>
+          </span>
+          <span className="analysis-orbit-circle orbit-two">
+            <span className="analysis-orbit-object"><CloudSun size={16} strokeWidth={1.9}/></span>
+          </span>
+          <span className="analysis-orbit-circle orbit-three">
+            <span className="analysis-orbit-object"><Leaf size={16} strokeWidth={1.9}/></span>
+          </span>
           <Leaf className="analysis-orbit-leaf" size={66} strokeWidth={1.6}/>
         </div>
         <div className={checked ? 'analysis-single-step complete' : 'analysis-single-step'}

@@ -116,6 +116,14 @@ assert(styles.includes('.analysis-overlay-content') &&
   styles.includes('backdrop-filter: blur(25px)') &&
   !styles.includes('.analysis-overlay-card'),
   'analysis must be full-viewport blurred glass with no visible modal box');
+assert(overlay.includes('analysis-orbit-object') &&
+  overlay.includes('<Route size={16}') &&
+  overlay.includes('<CloudSun size={16}') &&
+  overlay.includes('<Leaf size={16}') &&
+  styles.includes('.analysis-orbit-circle.orbit-three .analysis-orbit-object') &&
+  styles.includes('animation: analysis-spin 6s linear infinite reverse;') &&
+  styles.includes('animation: analysis-spin 8s linear infinite;'),
+  'three small route, weather and nature icons must ride continuously spinning rings');
 const routeService = read('../backend/src/services/routes.ts');
 assert(routeService.includes("input.mode === 'walk' ? 'Pedestrian'") &&
   routeService.includes('estimatedBikeMinutes') &&
