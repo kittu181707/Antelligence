@@ -4,6 +4,7 @@ import { parseIcs } from '../core/ics';
 import { isValidTime, timeToMinutes } from '../core/time';
 import { optimizeCandidateSets } from '../core/optimizer';
 import { routesForTrip } from '../services/routes';
+import { runDirectAnalysis } from '../services/analyze';
 import { geocode } from '../services/geocode';
 import type { RouteCandidate, TripCandidateSet } from '../types';
 
@@ -128,6 +129,23 @@ async function main() {
   });
   assert(demoBike[0].travelMinutes > 0);
 
+
+  // Controlled demo must demonstrate at least one measured optimization.
+  // Do not force recommendations in live mode when no feasible gain exists.
+  const demoExample = await runDirectAnalysis({
+    userId: 'demo-regression', date: '2026-10-10', demoMode: true,
+    homeLocation: 'Home, Delhi', maxExtraMinutes: 10,
+    events: [{ eventId: 'gym', title: 'Gym', location: 'Gym, Delhi',
+      start: '09:00', end: '10:00', fixed: true }],
+    journeys: [{ tripId: 'gym-trip', origin: 'Home, Delhi',
+      destination: 'Gym, Delhi', departureTime: '08:00',
+      arriveBy: '09:00', mode: 'walk' }],
+  });
+  assert(demoExample.changes.length > 0, 'controlled judge demo should contain a genuine modeled improvement');
+  assert(demoExample.metrics.exposureReductionPct > 0, 'demo recommendation must lower calculated modeled exposure');
+  assert(demoExample.trips[0].recommended.mode !== 'walk', 'demo should compare modes, not invent an improvement');
+  assert(demoExample.trips[0].recommended.source === 'Controlled demo route data');
+  assert.equal(demoExample.workflow.dataMode, 'demo');
 
   // The browser can supply GPS coordinates directly: geocoding must not require AWS for these.
   assert.deepEqual(await geocode('28.613900, 77.209000', false), { lat: 28.6139, lon: 77.209 });
