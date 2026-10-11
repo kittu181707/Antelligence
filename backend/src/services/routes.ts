@@ -9,6 +9,12 @@ async function client() {
   return clientPromise;
 }
 
+/**
+ * Use a genuine AWS route when available. Missing transit coverage and
+ * temporary routing failures fall back to a road-corridor estimate, then to
+ * a straight-line planning sketch. Estimates are NOT schedules, navigable
+ * directions, or proof of safe/cycle-legal/pedestrian-legal access.
+ */
 export async function routesForTrip(input: {
   origin: Coordinates;
   destination: Coordinates;
@@ -18,82 +24,144 @@ export async function routesForTrip(input: {
   arriveBy?: string;
   demoMode: boolean;
   tripOrdinal: number;
-}): Promise<BaseRoute[]> {
+}, requestOverride?: (command: any) => Promise<any>): Promise<BaseRoute[]> {
   if (input.demoMode) return demoRoutes(input);
 
+  if (!validCoordinate(input.origin) || !validCoordinate(input.destination)) {
+    throw new Error('Invalid route coordinates; check the starting point and destination.');
+  }
   const { CalculateRoutesCommand } = await import('@aws-sdk/client-geo-routes');
-  // AWS has no bicycle mode. Use its verified road geometry as an
-  // approximate cycling-exposure path, NEVER as safe bicycle navigation.
+  // Optional injected transport keeps real fallback behavior testable offline.
+  const aws = requestOverride ? null : await client();
+  // AWS has no bicycle mode. Its car-road geometry is a distance proxy,
+  // not bicycle-safe or bicycle-legal navigation.
   const travelMode = input.mode === 'walk' ? 'Pedestrian' : (input.mode === 'bus' || input.mode === 'metro') ? 'Transit' : 'Car';
-
-  const command: any = {
+  const base: any = {
     Origin: [input.origin.lon, input.origin.lat],
     Destination: [input.destination.lon, input.destination.lat],
-    TravelMode: travelMode,
     MaxAlternatives: 1,
     LegGeometryFormat: 'Simple',
     LegAdditionalFeatures: ['Summary'],
-    // AWS rejects historical departure times. For a past appointment use a
-    // current road-network route instead of sending an invalid timestamp.
     ...(futureDeparture(input.date, input.departureTime) ? { DepartureTime: departureIso(input.date, input.departureTime) } : {}),
   };
-
-  if (travelMode === 'Transit') {
-    command.TravelModeOptions = {
-      Transit: {
-        AllowedModes: input.mode === 'bus'
+  const request = async (mode: string): Promise<any[]> => {
+    const command: any = { ...base, TravelMode: mode };
+    if (mode === 'Transit') {
+      command.TravelModeOptions = {
+        Transit: { AllowedModes: input.mode === 'bus'
           ? ['Bus', 'BusRapidTransit', 'PrivateBus']
-          : ['Subway', 'CityTrain', 'LightRail', 'Monorail'],
-      },
-    };
-  }
-
-  let response: any;
-  try {
-    response = await (await client()).send(new CalculateRoutesCommand(command));
-  } catch (error: any) {
-    // Preserve historic departure retry used by all live road modes.
-    const diagnostic = [error?.message, error?.Reason, error?.reason].filter(Boolean).join(' ');
-    if (error?.name === 'ValidationException' && /departure|time/i.test(diagnostic) && command.DepartureTime) {
-      delete command.DepartureTime;
-      try {
-        response = await (await client()).send(new CalculateRoutesCommand(command));
-      } catch (retryError) {
-        throw userFacingRoutingError(retryError, input.mode);
+          : ['Subway', 'CityTrain', 'LightRail', 'Monorail'] },
+      };
+    }
+    try {
+      const result: any = requestOverride
+        ? await requestOverride(command)
+        : await aws!.send(new CalculateRoutesCommand(command));
+      return result.Routes || [];
+    } catch (error: any) {
+      const diagnostic = [error?.message, error?.Reason, error?.reason].filter(Boolean).join(' ');
+      // Reuse a current network route if an appointment's departure timestamp
+      // is rejected by AWS, rather than treating it as a nonexistent road.
+      if ((error?.name === 'ValidationException' || error?.name === 'RoutesValidationException') &&
+          /departure|time/i.test(diagnostic) && command.DepartureTime) {
+        delete command.DepartureTime;
+        const result: any = requestOverride
+          ? await requestOverride(command)
+          : await aws!.send(new CalculateRoutesCommand(command));
+        return result.Routes || [];
       }
-    } else {
-      throw userFacingRoutingError(error, input.mode);
+      throw error;
+    }
+  };
+
+  try {
+    const routes = await request(travelMode);
+    const parsed = routes.slice(0, 2).map((route, index): BaseRoute => {
+      const distanceMeters = Number(route.Summary?.Distance);
+      const duration = Number(route.Summary?.Duration);
+      if (!Number.isFinite(distanceMeters) || distanceMeters < 0 ||
+          !Number.isFinite(duration) || duration <= 0) throw new Error('Incomplete AWS route');
+      const points: Coordinates[] = (route.Legs || []).flatMap((leg: any) =>
+        (leg.Geometry?.LineString || []).map((point: number[]) => ({ lon: point[0], lat: point[1] })),
+      );
+      const bikeEstimate = input.mode === 'bike';
+      return {
+        routeId: `aws-${input.mode}-${index}`,
+        mode: input.mode,
+        label: bikeEstimate ? 'Bike · travel-time estimate' : index ? `${label(input.mode)} · alternate` : label(input.mode),
+        travelMinutes: bikeEstimate ? estimatedBikeMinutes(distanceMeters) : Math.max(1, Math.round(duration / 60)),
+        distanceKm: Math.max(0.1, distanceMeters / 1000),
+        geometry: points.length >= 2 && points.every(validCoordinate) ? points : [input.origin, input.destination],
+        source: bikeEstimate
+          ? 'Amazon Location Routes V2 car-road geometry · estimated cycling time (not bicycle-verified)'
+          : 'Amazon Location Routes V2',
+      };
+    });
+    if (parsed.length) return parsed;
+  } catch (error) {
+    console.warn(`AWS ${input.mode} route unavailable; trying an estimated fallback:`, error);
+  }
+
+  // A road-network corridor still helps approximate length when the requested
+  // transit/pedestrian mode lacks coverage. It is NOT that mode's itinerary.
+  if (travelMode !== 'Car') {
+    try {
+      const road = await request('Car');
+      const valid = road.find((route: any) =>
+        Number.isFinite(Number(route.Summary?.Distance)) && Number(route.Summary?.Distance) > 0);
+      if (valid) {
+        const geometry: Coordinates[] = (valid.Legs || []).flatMap((leg: any) =>
+          (leg.Geometry?.LineString || []).map((point: number[]) => ({ lon: point[0], lat: point[1] })),
+        );
+        return [planningEstimate(input, Math.max(.1, Number(valid.Summary.Distance) / 1000),
+          geometry.length >= 2 && geometry.every(validCoordinate) ? geometry : [input.origin, input.destination],
+          'road')];
+      }
+    } catch (error) {
+      console.warn('Road-corridor fallback unavailable; using straight-line planning estimate:', error);
     }
   }
-  const routes: any[] = response.Routes || [];
-  if (!routes.length) throw new Error(`No live ${input.mode} route was found. Try Car or Walk, or use a more specific destination.`);
 
-  return routes.slice(0, 2).map((route, index) => {
-    const durationSeconds = Number(route.Summary?.Duration);
-    const distanceMeters = Number(route.Summary?.Distance);
-    if (!Number.isFinite(durationSeconds) || durationSeconds <= 0 || !Number.isFinite(distanceMeters) || distanceMeters < 0) {
-      throw new Error('Amazon Location returned an incomplete route summary');
-    }
+  // Last resort: a planning sketch, not a claim that transport service exists.
+  const directKm = haversine(input.origin, input.destination);
+  return [planningEstimate(input, Math.max(.1, directKm * 1.3), [input.origin, input.destination], 'straight')];
+}
 
-    const geometry = (route.Legs || []).flatMap((leg: any) =>
-      (leg.Geometry?.LineString || []).map((point: number[]) => ({ lon: point[0], lat: point[1] })),
-    );
+function validCoordinate(point: Coordinates): boolean {
+  return Number.isFinite(point.lat) && Number.isFinite(point.lon) &&
+    Math.abs(point.lat) <= 90 && Math.abs(point.lon) <= 180;
+}
 
-    const bikeEstimate = input.mode === 'bike';
-    return {
-      routeId: `aws-${input.mode}-${index}`,
-      mode: input.mode,
-      label: bikeEstimate ? 'Bike · travel-time estimate' : index ? `${label(input.mode)} · alternate` : label(input.mode),
-      travelMinutes: bikeEstimate ? estimatedBikeMinutes(distanceMeters) : Math.max(1, Math.round(durationSeconds / 60)),
-      distanceKm: Math.max(0.1, distanceMeters / 1000),
-      geometry: geometry.length ? geometry : [input.origin, input.destination],
-      // AWS Routes V2 has no Bicycle mode. These car-network coordinates
-      // are NOT evidence that segments are cycling-legal or cycling-safe.
-      source: bikeEstimate
-        ? 'Amazon Location Routes V2 car-road geometry · estimated cycling time (not bicycle-verified)'
-        : 'Amazon Location Routes V2',
-    };
-  });
+/** Exported for deterministic, no-AWS fallback regression testing. */
+export function planningEstimate(
+  input: { origin: Coordinates; destination: Coordinates; mode: TransportMode },
+  distanceKm: number,
+  geometry: Coordinates[],
+  basis: 'road' | 'straight',
+): BaseRoute {
+  if (!Number.isFinite(distanceKm) || distanceKm <= 0 ||
+      geometry.length < 2 || !geometry.every(validCoordinate)) {
+    throw new Error('Invalid fallback distance or geometry');
+  }
+  const speed: Record<TransportMode, number> = { car: 27, bike: 14, bus: 20, metro: 28, walk: 4.5 };
+  // Not actual transport schedules: approximate waiting, boarding and access.
+  const accessMinutes: Record<TransportMode, number> = { car: 2, bike: 3, bus: 12, metro: 17, walk: 0 };
+  const travelMinutes = Math.max(1, Math.ceil(distanceKm / speed[input.mode] * 60 * (input.mode === 'bike' ? 1.15 : 1.1) + accessMinutes[input.mode]));
+  const description = basis === 'road' ? 'AWS car-road corridor proxy' : 'straight-line guide';
+  const caution = input.mode === 'bus' || input.mode === 'metro'
+    ? 'no verified transit service, stops or timetable'
+    : input.mode === 'bike' ? 'cycling access and safety not verified'
+    : input.mode === 'walk' ? 'pedestrian access not verified'
+    : 'road connectivity and traffic not verified';
+  return {
+    routeId: `estimate-${basis}-${input.mode}`,
+    mode: input.mode,
+    label: `${label(input.mode)} · estimate only`,
+    travelMinutes,
+    distanceKm: Math.round(distanceKm * 100) / 100,
+    geometry,
+    source: `Planning estimate · ${description} · ${caution} · not navigable directions`,
+  };
 }
 
 /** Planning estimate only: 14 km/h with 15% allowance for junctions/stops.

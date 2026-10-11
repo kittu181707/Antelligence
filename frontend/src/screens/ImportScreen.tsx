@@ -155,7 +155,7 @@ export function ImportScreen({ agenda, setAgenda, mode, journeys, setJourneys, m
           className={maxExtra === minutes ? 'selected' : ''}
           onClick={() => setMaxExtra(minutes)}>{minutes ? '+' : ''}{minutes} min</button>)}</div>
     </section>
-    {hasTransit && <div className="route-warning"><Info size={17}/> AWS Bus/Metro routes may be unavailable in your city. If analysis cannot find a route, try Car or Walk.
+    {hasTransit && <div className="route-warning"><Info size={17}/> AWS Bus/Metro routes may be unavailable in your city. When verified transit is missing, we'll show an estimated journey—not a confirmed line, timetable, or navigable route. Confirm local services before travelling.
       <button type="button" className="secondary" onClick={() => setJourneys(journeys.map((journey) =>
         ({ ...journey, mode: 'car' })))}>Use Car for all journeys</button>
     </div>}

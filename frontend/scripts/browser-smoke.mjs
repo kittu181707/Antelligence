@@ -608,6 +608,8 @@ try {
     'analyzed Today must open at the top even when the planner was scrolled');
   assert.equal(await page.locator('.results-layout').evaluate((main) => main.scrollTop), 0,
     'the shared main scrollport must also reset on entering analyzed Today');
+  assert(await page.getByRole('button', { name: 'See a sample with real changes' }).isVisible(),
+    'when verified live changes are absent, users must be offered a clearly labeled working demonstration');
   await check('direct live Bike Analyze from stop editor');
   assert.equal(await page.locator('.raster-map-badge').textContent(), 'AWS routes',
     'live analyzed geometries must identify Amazon Location Routes');

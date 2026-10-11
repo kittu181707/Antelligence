@@ -247,6 +247,7 @@ export function Map({ trips, liveLocation, isDemo = false, previewPoints = [] }:
     event.preventDefault();
     zoomTo(view.zoom + (event.deltaY < 0 ? 1 : -1));
   };
+  const hasEstimatedTrips = trips.some((trip) => [trip.original, trip.recommended].some((route) => route.source.startsWith('Planning estimate')));
   const selected = stops.find((stop) => stop.id === selectedId);
   const previewSelected = !trips.length ? previewPoints.find((stop) => stop.id === selectedId) : undefined;
   return <div className="raster-map" ref={container} aria-label="Route map: OpenStreetMap tiles, Amazon Location routing" data-map-engine="dom-raster" data-map-ready={hasTile ? 'true' : 'fallback'}>
@@ -285,7 +286,7 @@ export function Map({ trips, liveLocation, isDemo = false, previewPoints = [] }:
       <button type="button" aria-label="Zoom out" onClick={() => zoomTo(view.zoom - 1)}><Minus size={16}/></button>
       <button type="button" aria-label="Find my location" onClick={locate}><LocateFixed size={16}/></button>
     </div>
-    <div className="raster-map-badge">{isDemo ? 'Demo · OSM' : trips.length ? 'AWS routes' : previewPoints.length ? 'AWS places' : 'OSM map'}</div>
+    <div className="raster-map-badge">{isDemo ? 'Demo · OSM' : hasEstimatedTrips ? 'Estimated route · not navigation' : trips.length ? 'AWS routes' : previewPoints.length ? 'AWS places' : 'OSM map'}</div>
     {previewSelected && <div className="raster-stop-detail" role="status"><button type="button" aria-label="Close stop details" onClick={() => setSelectedId(null)}>×</button><strong>{previewSelected.label}</strong><span>Amazon Location found this place. Straight-line preview only; AWS routes appear after Analyze.</span></div>}
     {selected && <div className="raster-stop-detail" role="status">
       <button type="button" aria-label="Close stop details" onClick={() => setSelectedId(null)}>×</button>

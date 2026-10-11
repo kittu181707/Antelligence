@@ -4,6 +4,8 @@ import { parseIcs } from '../core/ics';
 import { isValidTime, timeToMinutes } from '../core/time';
 import { optimizeCandidateSets } from '../core/optimizer';
 import { routesForTrip } from '../services/routes';
+import { runDirectAnalysis } from '../services/analyze';
+import { demoDay } from '../core/demo';
 import { geocode } from '../services/geocode';
 import type { RouteCandidate, TripCandidateSet } from '../types';
 
@@ -128,6 +130,88 @@ async function main() {
   });
   assert(demoBike[0].travelMinutes > 0);
 
+
+  // Controlled demo must demonstrate at least one measured optimization.
+  // Do not force recommendations in live mode when no feasible gain exists.
+  const demoExample = await runDirectAnalysis({
+    userId: 'demo-regression', date: '2026-10-10', demoMode: true,
+    homeLocation: 'Home, Delhi', maxExtraMinutes: 10,
+    events: [{ eventId: 'gym', title: 'Gym', location: 'Gym, Delhi',
+      start: '09:00', end: '10:00', fixed: true }],
+    journeys: [{ tripId: 'gym-trip', origin: 'Home, Delhi',
+      destination: 'Gym, Delhi', departureTime: '08:00',
+      arriveBy: '09:00', mode: 'walk' }],
+  });
+  assert(demoExample.changes.length > 0, 'controlled judge demo should contain a genuine modeled improvement');
+  assert(demoExample.metrics.exposureReductionPct > 0, 'demo recommendation must lower calculated modeled exposure');
+  assert(demoExample.trips[0].recommended.mode !== 'walk', 'demo should compare modes, not invent an improvement');
+  assert(demoExample.trips[0].recommended.source === 'Controlled demo route data');
+  assert.equal(demoExample.workflow.dataMode, 'demo');
+
+  // Protect the REAL judge-demo entry point, including its times/modes,
+  // not only the simplified one-stop controlled illustration.
+  const showcaseDay = demoDay();
+  const showcaseJourneys = showcaseDay.events.map((event, index) => ({
+    tripId: `judge-demo-${index}`,
+    origin: index === 0 ? showcaseDay.homeLocation : showcaseDay.events[index - 1].location,
+    destination: event.location,
+    departureTime: ['07:45', '12:00', '17:45', '19:20'][index],
+    arriveBy: event.start,
+    mode: (['car', 'metro', 'metro', 'bike'] as const)[index],
+  }));
+  const showcaseResult = await runDirectAnalysis({
+    ...showcaseDay, userId: 'showcase-regression',
+    journeys: showcaseJourneys, maxExtraMinutes: 10, demoMode: true,
+  });
+  assert(showcaseResult.changes.length > 0,
+    'the actual one-click judge demo must show at least one supported route, mode, or time optimization');
+  assert(showcaseResult.metrics.exposureReductionPct > 0,
+    'the actual judge demo must visibly reduce modeled exposure');
+  assert.equal(showcaseResult.workflow.dataMode, 'demo');
+
+  // Exercise the production AWS-failure fallback, not just the estimate
+  // formula, without making live AWS calls during CI.
+  const routeInput = {
+    origin: { lat: 16.328441, lon: 80.416747 },
+    destination: { lat: 16.336100, lon: 80.431222 },
+    date: '2026-10-11', departureTime: '08:00',
+    demoMode: false, tripOrdinal: 0,
+  };
+  for (const mode of ['bus', 'metro', 'walk'] as const) {
+    const issued: string[] = [];
+    const fallbackRoutes = await routesForTrip({ ...routeInput, mode }, async (cmd: any) => {
+      issued.push(cmd.TravelMode);
+      if (cmd.TravelMode !== 'Car') {
+        const error = new Error('Unsupported travel mode');
+        error.name = 'ValidationException';
+        throw error;
+      }
+      return { Routes: [{ Summary: { Distance: 3500, Duration: 620 },
+        Legs: [{ Geometry: { LineString: [
+          [routeInput.origin.lon, routeInput.origin.lat],
+          [routeInput.destination.lon, routeInput.destination.lat],
+        ] } }] }] };
+    });
+    assert.deepEqual(issued, [mode === 'walk' ? 'Pedestrian' : 'Transit', 'Car']);
+    assert.equal(fallbackRoutes.length, 1);
+    assert.equal(fallbackRoutes[0].mode, mode);
+    assert(fallbackRoutes[0].travelMinutes > 0);
+    assert.match(fallbackRoutes[0].source, /Planning estimate.*not navigable directions/);
+  }
+  const roadOutage = await routesForTrip({ ...routeInput, mode: 'car' }, async () => ({ Routes: [] }));
+  assert.equal(roadOutage[0].mode, 'car');
+  assert.match(roadOutage[0].source, /straight-line guide/);
+  const transitOutage = await routesForTrip({ ...routeInput, mode: 'bus' }, async () => { throw new Error('offline'); });
+  assert.match(transitOutage[0].source, /straight-line guide.*no verified transit service/);
+  const bikeFromRoad = await routesForTrip({ ...routeInput, mode: 'bike' }, async () => ({
+    Routes: [{ Summary: { Distance: 3500, Duration: 620 },
+      Legs: [{ Geometry: { LineString: [
+        [routeInput.origin.lon, routeInput.origin.lat],
+        [routeInput.destination.lon, routeInput.destination.lat],
+      ] } }] }],
+  }));
+  assert.match(bikeFromRoad[0].source, /not bicycle-verified/);
+  assert.equal(bikeFromRoad[0].mode, 'bike');
 
   // The browser can supply GPS coordinates directly: geocoding must not require AWS for these.
   assert.deepEqual(await geocode('28.613900, 77.209000', false), { lat: 28.6139, lon: 77.209 });

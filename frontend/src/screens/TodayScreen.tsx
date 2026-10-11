@@ -1,4 +1,4 @@
-import { Search, ArrowRight, ArrowUpRight, Calendar, CalendarDays, MapPin, Navigation2, CheckCircle2, PlayCircle, AlertTriangle, ArrowDown, Clock3, Sun, Wind, HelpCircle, Route, ShieldCheck, Sparkles } from 'lucide-react';
+import { Search, ArrowRight, ArrowUpRight, Calendar, CalendarDays, MapPin, Navigation2, CheckCircle2, PlayCircle, AlertTriangle, ArrowDown, Clock3, Sun, Wind, HelpCircle, Route, ShieldCheck, Sparkles, Info } from 'lucide-react';
 import type { AgendaPayload, JourneyInput, DayAnalysis, TripAnalysis, Coordinates } from '../types';
 import { shortTime } from '../utils';
 
@@ -148,6 +148,12 @@ export function TodayScreen({
       </div>
 
           {/* BOTTOM SECTION */}
+          {analysis && analysis.workflow.routeSource.includes('Planning estimate') && (
+            <div className="results-route-disclaimer" role="note">
+              <Info size={16} aria-hidden="true"/>
+              <span>Some journeys use planning estimates because live mode routing was unavailable. Their lines and travel times are not confirmed directions, transport schedules, or safety-checked routes.</span>
+            </div>
+          )}
           {analysis && m && (
             <div className="dashboard-bottom">
               <div className="dashboard-card analysis-card">
@@ -168,6 +174,7 @@ export function TodayScreen({
 
               <div className="dashboard-card comparison-card">
                 <h3><Route size={17} aria-hidden="true"/> AWS route options</h3>
+                <p className="results-options-count">{analysis.workflow.routesEvaluated} feasible options scored for {analysis.trips.length} {analysis.trips.length === 1 ? 'journey' : 'journeys'}</p>
                 {analysis.changes.length > 0 ? (
                   <div className="change-list" style={{ margin: 0 }}>
                     {analysis.changes.slice(0, 1).map((trip) => (
@@ -196,17 +203,22 @@ export function TodayScreen({
                 ) : (
                   <div className="results-empty-state">
                     <span className="results-empty-symbol"><CheckCircle2 size={22} aria-hidden="true"/></span>
-                    <strong>No changes recommended</strong>
-                    <p>Your routes are already the best fit among the alternatives evaluated.</p>
+                    <strong>No supported improvement found</strong>
+                    <p>We checked the feasible routes and departure times. No option meaningfully reduced modeled exposure within your schedule. You can try allowing extra travel time or updating your stops.</p>
+                    {!isDemo && <button type="button" className="secondary results-example-cta"
+                      onClick={onDemo} disabled={busy}>
+                      <PlayCircle size={15} aria-hidden="true"/>
+                      {busy ? 'Preparing example…' : 'See a sample with real changes'}
+                    </button>}
                   </div>
                 )}
               </div>
 
               <div className="dashboard-card why-card">
                 <h3><Sparkles size={17} aria-hidden="true"/> Why this result?</h3>
-                {whyText ? (
+                {analysis.changes.length > 0 ? (
                   <div className="why-copy" style={{ fontSize: '13px', lineHeight: 1.5 }}>
-                    {whyText}
+                    {whyText || analysis.changes[0].explanation}
                   </div>
                 ) : analysis.changes.length > 0 ? (
                   <div className="results-empty-state">
@@ -217,8 +229,8 @@ export function TodayScreen({
                 ) : (
                   <div className="results-empty-state">
                     <span className="results-empty-symbol"><CheckCircle2 size={22} aria-hidden="true"/></span>
-                    <strong>Stay with your plan</strong>
-                    <p>No improvement was found within your selected travel limits.</p>
+                    <strong>Keep your plan for now</strong>
+                    <p>No measurable cleaner alternative met your current timing and travel constraints. This is a valid result, not a failed analysis.</p>
                   </div>
                 )}
               </div>
