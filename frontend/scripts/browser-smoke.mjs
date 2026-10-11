@@ -329,9 +329,17 @@ try {
   assert.equal(await page.evaluate(() => history.state?.pollutionView?.tab), 'today',
     'Back must restore the Today history entry');
   await page.evaluate(() => window.history.forward());
+  await page.waitForTimeout(500);
+  const afterSettingsForward = await page.evaluate(() => ({
+    state: history.state?.pollutionView,
+    active: document.querySelector('.bottom-nav [aria-current="page"]')?.textContent,
+    hasLandingHero: !!document.querySelector('.landing-hero'),
+    readyState: document.readyState,
+  }));
+  console.log('Settings Forward diagnostics:', JSON.stringify(afterSettingsForward));
   await page.waitForFunction(() =>
     document.querySelector('.bottom-nav button[aria-current="page"]')?.textContent?.includes('Settings'),
-    undefined, { timeout: 5000 });
+    undefined, { timeout: 3500 });
   assert.equal(await page.evaluate(() => history.state?.pollutionView?.tab), 'settings',
     'Forward must retain and restore the Settings history entry');
   assert.equal(await page.getByRole('button', { name: 'Settings', exact: true }).getAttribute('aria-current'), 'page',
