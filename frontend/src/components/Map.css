@@ -6,30 +6,37 @@
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 18px;
-  background: #eef2ef;
+  background: #08150f;
 }
+
 .aws-live-map {
   position: absolute;
   inset: 0;
 }
+
 .aws-live-map.hidden {
   visibility: hidden;
 }
+
 .aws-map-shell .maplibregl-map,
 .aws-map-shell .maplibregl-canvas {
   width: 100%;
   height: 100%;
 }
+
 .aws-map-shell .maplibregl-ctrl-top-right {
-  top: 10px;
-  right: 10px;
+  top: 12px;
+  right: 12px;
 }
+
 .aws-map-shell .maplibregl-ctrl-group {
   overflow: hidden;
-  border: 1px solid rgba(210,218,212,.92);
-  border-radius: 11px;
-  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(10, 22, 15, 0.9);
+  backdrop-filter: blur(8px);
 }
+
 .map-live-badge {
   position: absolute;
   z-index: 5;
@@ -38,20 +45,25 @@
   min-height: 28px;
   display: inline-flex;
   align-items: center;
-  padding: 0 10px;
-  border: 1px solid rgba(255,255,255,.78);
+  padding: 0 12px;
+  border: 1px solid var(--gold);
   border-radius: 999px;
-  background: rgba(15,122,80,.92);
-  color: #fff;
-  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-  backdrop-filter: blur(10px);
+  background: rgba(12, 28, 19, 0.92);
+  color: var(--gold-bright);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
   font-size: 9px;
-  font-weight: 600;
-  letter-spacing: .075em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
+
 .map-live-badge.fallback {
-  background: rgba(57,65,60,.88);
+  background: rgba(30, 25, 20, 0.92);
+  border-color: var(--copper);
+  color: #f0b070;
 }
+
 .map-route-legend {
   position: absolute;
   z-index: 5;
@@ -59,74 +71,98 @@
   bottom: 14px;
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  padding: 9px 11px;
-  border: 1px solid rgba(255,255,255,.72);
-  border-radius: 11px;
-  background: rgba(255,255,255,.91);
-  color: #3e4942;
-  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-  backdrop-filter: blur(10px);
-  font-size: 10px;
+  gap: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(10, 22, 15, 0.92);
+  color: var(--ivory-soft);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
+  font-size: 11px;
   font-weight: 500;
 }
+
 .map-route-legend span {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
 }
+
 .map-line {
-  width: 22px;
+  width: 20px;
   height: 4px;
   border-radius: 99px;
 }
-.map-line.current { background: #7f8782; }
-.map-line.recommended { background: #0f8a57; }
+
+.map-line.current { 
+  background: #7f8782; 
+}
+
+.map-line.recommended { 
+  background: var(--green); 
+  box-shadow: 0 0 8px var(--green-glow);
+}
+
 .map-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #d6a620;
+  background: var(--gold);
+  box-shadow: 0 0 6px var(--gold-glow);
 }
+
 .map-loading {
   position: absolute;
   z-index: 3;
   inset: 0;
   display: grid;
   place-items: center;
-  color: #617069;
+  color: var(--gold);
   font-size: 12px;
   font-weight: 500;
-  background: linear-gradient(135deg,#eef3ef,#f8faf8);
+  background: rgba(8, 20, 14, 0.95);
+  letter-spacing: 0.05em;
 }
+
 .map-fallback {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  color: #718078;
-  background: linear-gradient(135deg,#eef3ef,#f8faf8);
+  color: var(--sage);
+  background: radial-gradient(circle at 50% 50%, #0d2217 0%, #07130c 100%);
 }
+
 .fallback-route {
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+
 .fallback-route.current {
   stroke: #7f8782;
-  stroke-width: 5;
-  opacity: .66;
+  stroke-width: 4;
+  opacity: 0.65;
 }
+
 .fallback-route.recommended {
-  stroke: #0f8a57;
-  stroke-width: 7;
+  stroke: var(--green);
+  stroke-width: 6;
+  filter: drop-shadow(0 0 4px var(--green));
 }
+
 .fallback-sample {
-  fill: #d6a620;
-  stroke: white;
+  fill: var(--gold);
+  stroke: #07130c;
   stroke-width: 2;
 }
+
 @media (max-width: 720px) {
-  .aws-map-shell { min-height: 400px; }
-  .map-route-legend { right: 14px; }
+  .aws-map-shell { 
+    min-height: 400px; 
+  }
+  .map-route-legend { 
+    right: 14px; 
+  }
 }

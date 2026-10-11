@@ -4,6 +4,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { api } from '../api';
 import { AMAZON_LOCATION_API_KEY, AMAZON_LOCATION_MAP_STYLE, AWS_REGION } from '../config';
 import type { RuntimeConfig } from '../types';
+import { MapPin, Globe, Activity, ShieldCheck } from 'lucide-react';
 
 type Station = {
   name: string;
@@ -88,7 +89,7 @@ export function IndiaScreen() {
         container: containerRef.current,
         style: styleUrl(config),
         center: [78.9629, 20.5937],
-        zoom: 4.2,
+        zoom: 4.4,
         attributionControl: { compact: true },
         validateStyle: false,
         cooperativeGestures: false,
@@ -110,11 +111,11 @@ export function IndiaScreen() {
           type: 'circle',
           source: 'india-stations',
           paint: {
-            'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 8, 8, 18] as any,
+            'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 9, 8, 22] as any,
             'circle-color': ['step', ['get', 'aqi'], '#157f55', 51, '#d4b724', 101, '#d47c24', 151, '#b53a37'] as any,
-            'circle-opacity': .72,
-            'circle-stroke-color': '#ffffff',
-            'circle-stroke-width': 1.5,
+            'circle-opacity': 0.78,
+            'circle-stroke-color': '#cba157',
+            'circle-stroke-width': 2,
           },
         });
 
@@ -123,10 +124,15 @@ export function IndiaScreen() {
           const coordinates = (feature?.geometry as any)?.coordinates;
           const properties = feature?.properties as any;
           if (!coordinates || !properties) return;
-          new maplibregl.Popup({ closeButton: true, maxWidth: '240px' })
+          new maplibregl.Popup({ closeButton: true, maxWidth: '260px' })
             .setLngLat(coordinates)
             .setHTML(
-              `<div style="font:12px system-ui;color:#172019"><strong>${escapeHtml(properties.name)}</strong><br>AQI ${properties.aqi}<br>PM2.5 ${properties.pm25} µg/m³<br>PM10 ${properties.pm10} µg/m³<br><small>${escapeHtml(properties.source)}</small></div>`,
+              `<div style="font:13px 'Plus Jakarta Sans', system-ui;color:#07120c;padding:4px">
+                <strong style="font-size:14px;color:#0e3621">${escapeHtml(properties.name)}</strong><br>
+                <div style="margin:4px 0;font-weight:600">US AQI: ${properties.aqi}</div>
+                <div style="font-size:11px;color:#4a5951">PM2.5: ${properties.pm25} µg/m³ · PM10: ${properties.pm10} µg/m³</div>
+                <small style="font-size:10px;color:#7a8a81;margin-top:4px;display:block">${escapeHtml(properties.source)}</small>
+              </div>`,
             )
             .addTo(map);
         });
@@ -161,25 +167,66 @@ export function IndiaScreen() {
   return (
     <div className="screen wide india-screen">
       <div className="screen-title">
-        <p className="eyebrow">NATIONAL OVERVIEW</p>
-        <h1>India Environmental Intelligence</h1>
-        <p>Modeled US AQI and particulate forecasts across selected Indian cities; not street-level monitors.</p>
+        <p className="eyebrow">ACT V · NATIONAL ENVIRONMENTAL INTELLIGENCE</p>
+        <h1>Subcontinental Air Observation</h1>
+        <p>
+          Modeled US AQI and particulate forecasts across primary Indian metropolitan hubs.
+          Powered by Amazon Location Maps V2 with real-time traffic overlays.
+        </p>
       </div>
 
       <div className="india-live-map">
         <div ref={containerRef} className={`india-map-canvas ${status === 'fallback' ? 'hidden' : ''}`}/>
-        {status === 'fallback' && <div className="india-station-grid">
-          {stations.map((station) => <article key={station.name}>
-            <i style={{ background: color(station.aqi) }}/>
-            <strong>{station.name}</strong>
-            <span>AQI {Math.round(station.aqi)}</span>
-            <small>PM2.5 {Math.round(station.pm25)} · PM10 {Math.round(station.pm10)}</small>
-          </article>)}
-        </div>}
+        {status === 'fallback' && (
+          <div className="india-station-grid">
+            {stations.map((station) => (
+              <article key={station.name}>
+                <i style={{ background: color(station.aqi) }}/>
+                <strong>{station.name}</strong>
+                <span>AQI {Math.round(station.aqi)}</span>
+                <small>PM2.5 {Math.round(station.pm25)} · PM10 {Math.round(station.pm10)}</small>
+              </article>
+            ))}
+          </div>
+        )}
         {status === 'loading' && <div className="map-loading">Loading Amazon Location map…</div>}
         <span className={`map-live-badge ${status === 'fallback' ? 'fallback' : ''}`}>
-          {status === 'live' ? 'AWS LIVE MAP' : 'LIVE DATA · MAP FALLBACK'}
+          {status === 'live' ? 'AWS LIVE MAP · AMAZON LOCATION' : 'LIVE DATA · MAP FALLBACK'}
         </span>
+      </div>
+
+      {/* METROPOLITAN STATIONS BREAKDOWN GRID */}
+      <div style={{ marginTop: '28px' }}>
+        <div className="card-kicker" style={{ marginBottom: '12px' }}>METROPOLITAN OBSERVATORIES</div>
+        <div className="india-preview-grid">
+          {stations.map((station) => (
+            <div key={station.name} className="city-telemetry-card renaissance-card">
+              <div className="city-card-header">
+                <MapPin size={15} className="gold-accent" />
+                <strong>{station.name}</strong>
+                <span 
+                  style={{ 
+                    marginLeft: 'auto', 
+                    fontSize: '11px', 
+                    fontWeight: 700, 
+                    color: color(station.aqi),
+                    padding: '2px 8px',
+                    borderRadius: '99px',
+                    background: 'rgba(255,255,255,0.06)'
+                  }}
+                >
+                  AQI {Math.round(station.aqi)}
+                </span>
+              </div>
+              <p className="city-desc" style={{ marginBottom: '6px' }}>
+                PM2.5: <strong>{Math.round(station.pm25)} µg/m³</strong> · PM10: <strong>{Math.round(station.pm10)} µg/m³</strong>
+              </p>
+              <div className="city-coords">
+                <span>{station.source}</span>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
