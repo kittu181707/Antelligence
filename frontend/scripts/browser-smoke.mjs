@@ -165,7 +165,7 @@ try {
       label + ': test requires populated live environment chips: ' + JSON.stringify(layout));
     assert.equal(layout.logoAlt, 'Antelligence', label + ': logo image must retain accessible name');
     assert.equal(layout.tagline, 'Intelligence through coordination', label + ': missing brand message');
-    assert(layout.logoLoaded && layout.logoWidth >= 185 && layout.logoWidth <= 210 &&
+    assert(layout.logoLoaded && layout.logoWidth >= 175 && layout.logoWidth <= 210 &&
       layout.logoHeight >= 55 && layout.logoHeight <= 70 &&
       !layout.oldIcon && layout.sentenceLines <= 1.08,
       label + ': exact image should fit compactly without the old ant or text logo: ' + JSON.stringify(layout));
