@@ -314,8 +314,17 @@ try {
   // without losing the pending itinerary.
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   assert.equal(await page.getByRole('button', { name: 'Settings', exact: true }).getAttribute('aria-current'), 'page');
+  const beforeSettingsBack = await page.evaluate(() => ({ state: history.state?.pollutionView, length: history.length }));
   await page.evaluate(() => window.history.back());
-  await page.locator('.landing-hero').waitFor({ state: 'visible' });
+  await page.waitForTimeout(450);
+  const afterSettingsBack = await page.evaluate(() => ({
+    state: history.state?.pollutionView,
+    length: history.length,
+    active: document.querySelector('.bottom-nav [aria-current="page"]')?.textContent,
+    hasLandingHero: !!document.querySelector('.landing-hero'),
+  }));
+  console.log('Settings Back diagnostics:', JSON.stringify({ beforeSettingsBack, afterSettingsBack }));
+  await page.locator('.landing-hero').waitFor({ state: 'visible', timeout: 3500 });
   // Going Back must not create a new history entry and erase Forward.
   assert.equal(await page.evaluate(() => history.state?.pollutionView?.tab), 'today',
     'Back must restore the Today history entry');
