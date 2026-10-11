@@ -270,3 +270,9 @@
   .insight-weather-card > strong, .insight-traffic-card > strong { font-size:10px; }
   .map-layer-options { max-height: calc(100% - 54px); }
 }
+
+/* Information cards must never steal map drags or cover tappable AQI/UV
+   samples; only actual buttons and opened sample-details accept pointers. */
+.insight-legend, .insight-weather-card, .insight-model-notice,
+.insight-traffic-card, .insight-exposure-card { pointer-events: none; }
+.insight-detail { pointer-events: auto; }
