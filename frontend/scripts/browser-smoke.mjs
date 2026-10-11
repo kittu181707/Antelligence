@@ -464,8 +464,17 @@ try {
     'only the central leaf should appear in the orbit animation');
   assert.equal(await overlay.locator('.analysis-orbit-circle').count(), 3,
     'the central leaf should be surrounded by three rotating rings');
-  assert.equal(await overlay.locator('.analysis-orbit-satellite').count(), 0,
-    'no route/weather satellite symbols should surround the leaf');
+  assert.equal(await overlay.locator('.analysis-orbit-object').count(), 3,
+    'three small route, weather, and leaf icons should orbit around the central leaf');
+  for (const ring of ['one', 'two', 'three']) {
+    assert.equal(await overlay.locator('.analysis-orbit-circle.orbit-' + ring + ' > .analysis-orbit-object').count(), 1,
+      'each rotating circle must carry exactly one orbiting icon');
+  }
+  const orbitStart = await overlay.locator('.orbit-one .analysis-orbit-object').boundingBox();
+  await page.waitForTimeout(220);
+  const orbitEnd = await overlay.locator('.orbit-one .analysis-orbit-object').boundingBox();
+  assert(orbitStart && orbitEnd && Math.hypot(orbitEnd.x - orbitStart.x, orbitEnd.y - orbitStart.y) > 3,
+    'the small icon must actually move along its circular path, not just float in place');
   assert.equal(await overlay.locator('[data-analysis-step]').count(), 1,
     'only one current step should be rendered');
   const visuals = await overlay.evaluate((element) => {
@@ -479,11 +488,16 @@ try {
       panelTransparent: contentStyle.backgroundColor === 'rgba(0, 0, 0, 0)',
       panelBorder: contentStyle.borderTopWidth,
       ringAnimation: ringStyle.animationName,
+      ringsInfinite: [...element.querySelectorAll('.analysis-orbit-circle')].every((item) =>
+        getComputedStyle(item).animationIterationCount === 'infinite'),
+      iconsInfinite: [...element.querySelectorAll('.analysis-orbit-object')].every((item) =>
+        getComputedStyle(item).animationIterationCount === 'infinite'),
       viewport: Math.abs(element.getBoundingClientRect().height - window.innerHeight) < 2,
     };
   });
   assert(visuals.blurred && visuals.panelTransparent && visuals.panelBorder === '0px' &&
-    visuals.viewport && visuals.ringAnimation === 'analysis-spin',
+    visuals.viewport && visuals.ringAnimation === 'analysis-spin' &&
+    visuals.ringsInfinite && visuals.iconsInfinite,
     'full-screen blurred backdrop, transparent center and moving rings required: ' + JSON.stringify(visuals));
   const firstStage = await overlay.locator('.analysis-single-step strong').textContent();
   const firstIndex = Number(await overlay.locator('[data-analysis-step]').getAttribute('data-stage-index'));
