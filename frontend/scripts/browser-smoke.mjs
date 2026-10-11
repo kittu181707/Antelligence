@@ -520,6 +520,11 @@ try {
   assert.equal(await page.getByLabel('Stop 1 travel departure').inputValue(), '08:10',
     'failed analysis must retain custom departure');
 
+  // Reproduce the reported bug: leave the planner scrolled deep immediately
+  // before transitioning to the completed analysis dashboard.
+  await page.locator('.planner-layout .global-panel-col').evaluate((panel) => { panel.scrollTop = 260; });
+  const plannerScrollBeforeResult = await page.locator('.planner-layout .global-panel-col').evaluate((panel) => panel.scrollTop);
+  assert(plannerScrollBeforeResult > 20, 'scroll-reset test needs a genuinely scrolled planner');
   await page.locator('.planner-map-review-button').click();
   await overlay.waitFor({ state: 'visible', timeout: 4000 });
   await page.waitForSelector('.raster-route-optimized', { timeout: 15000 });
@@ -537,6 +542,10 @@ try {
     'direct analysis must never display an intermediate review page');
   assert(!await page.locator('.analysis-overlay').count(),
     'results must dismiss the overlay and display the results without loading-page navigation');
+  assert.equal(await page.locator('.results-layout .global-panel-col').evaluate((panel) => panel.scrollTop), 0,
+    'analyzed Today must open at the top even when the planner was scrolled');
+  assert.equal(await page.locator('.results-layout').evaluate((main) => main.scrollTop), 0,
+    'the shared main scrollport must also reset on entering analyzed Today');
   await check('direct live Bike Analyze from stop editor');
   // Reload clears an unsubmitted planner draft before exercising the demo entry point.
   await page.reload({ waitUntil: 'domcontentloaded' });
@@ -579,6 +588,37 @@ try {
   const dockBounds = await page.locator('.bottom-nav').boundingBox();
   assert(lastCards && dockBounds && lastCards.y + lastCards.height < dockBounds.y - 4,
     'scrolled-to-bottom summary must clear the fixed navigation: ' + JSON.stringify({lastCards,dockBounds}));
+  // Right-side map and impact must fit as one stationary composition, with
+  // no sidebar scrollbar and neither card hidden behind the dock.
+  const verifyRightFit = async (label) => {
+    const fit = await page.evaluate(() => {
+      const aside = document.querySelector('.results-layout .global-map-col');
+      const map = document.querySelector('.results-layout .compact-map-frame');
+      const card = document.querySelector('.results-layout .compact-map-card');
+      const impact = document.querySelector('.results-layout .results-impact-panel');
+      const nav = document.querySelector('.bottom-nav');
+      const rect = (el) => el?.getBoundingClientRect();
+      return {
+        overflow: getComputedStyle(aside).overflowY,
+        scrollHeight: aside.scrollHeight,
+        clientHeight: aside.clientHeight,
+        aside: rect(aside), map: rect(map), card: rect(card),
+        impact: rect(impact), nav: rect(nav),
+      };
+    });
+    assert(fit.overflow === 'hidden' && fit.scrollHeight <= fit.clientHeight + 2,
+      label + ': right column must not scroll or clip content: ' + JSON.stringify(fit));
+    assert(fit.map.height >= 135 && fit.card.bottom < fit.impact.top &&
+      fit.impact.bottom <= fit.aside.bottom + 2 &&
+      fit.impact.bottom <= fit.nav.top - 8,
+      label + ': map + impact must both fit above floating nav: ' + JSON.stringify(fit));
+  };
+  await verifyRightFit('normal desktop');
+  await page.setViewportSize({ width: 1280, height: 640 });
+  await page.waitForTimeout(150);
+  await verifyRightFit('short laptop');
+  await page.setViewportSize({ width: 1365, height: 768 });
+  await page.waitForTimeout(150);
   await page.screenshot({ path: '/tmp/pollution-demo-desktop.png', fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 844 });
