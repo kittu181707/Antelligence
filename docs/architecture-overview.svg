@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="980" viewBox="0 0 1440 980" role="img" aria-labelledby="title desc">
+<title id="title">Antelligence architecture: from a fixed calendar to a lower-modeled-exposure day</title>
+<desc id="desc">React planner on AWS Amplify calls API Gateway and Lambda. A Step Functions Express workflow prepares and validates input, optimizes real routes from Amazon Location against Tomorrow.io or Open-Meteo forecasts with a deterministic exposure model, and persists the result in DynamoDB. Optional Bedrock explains the results. CloudWatch monitors operations. Journey map tiles are from OpenStreetMap.</desc>
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#081327"/><stop offset=".54" stop-color="#0e1c32"/><stop offset="1" stop-color="#091524"/></linearGradient>
+  <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#162a47"/><stop offset="1" stop-color="#10203a"/></linearGradient>
+  <linearGradient id="green" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#7cf2d1"/><stop offset="1" stop-color="#4fcfdd"/></linearGradient>
+  <linearGradient id="glow" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#286f75" stop-opacity=".23"/><stop offset="1" stop-color="#112641" stop-opacity="0"/></linearGradient>
+  <pattern id="dot" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r=".9" fill="#94b4c9" opacity=".12"/></pattern>
+  <filter id="soft"><feGaussianBlur stdDeviation="45"/></filter>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.1" refY="3.5" orient="auto"><path d="M0 0 L7.2 3.5 L0 7" fill="none" stroke="#62d9bd" stroke-width="1.7" stroke-linecap="round"/></marker>
+</defs>
+<rect width="1440" height="980" rx="30" fill="url(#bg)"/>
+<rect width="1440" height="980" rx="30" fill="url(#dot)"/>
+<circle cx="1353" cy="36" r="235" fill="#3b8984" opacity=".12" filter="url(#soft)"/>
+<circle cx="104" cy="940" r="230" fill="#3960ae" opacity=".12" filter="url(#soft)"/>
+<rect x="55" y="42" width="7" height="59" rx="3" fill="url(#green)"/>
+<text x="83" y="54" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" font-weight="700" letter-spacing="2.2" fill="#73edce">THE SYSTEM / AIR TRACK</text>
+<text x="82" y="100" fill="#f7fbff" font-size="45" font-weight="750" font-family="Inter, ui-sans-serif, system-ui, sans-serif" letter-spacing="-1.4">A smarter journey between fixed commitments.</text>
+<text x="82" y="131" fill="#a9bad0" font-size="18" font-family="Inter, ui-sans-serif, system-ui, sans-serif">Real route options + environmental forecasts + an explainable, constraint-aware optimizer</text>
+
+<rect x="55" y="162" width="1330" height="120" rx="22" fill="#14263d" stroke="#2a4962" stroke-width="1.5"/>
+<text x="83" y="194" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" font-weight="700" letter-spacing="2.2" fill="#82e6cb">01 / HUMAN DECISION</text>
+<text x="83" y="225" fill="#eaf5ff" font-size="18" font-weight="600" font-family="Inter, ui-sans-serif, system-ui, sans-serif">Your day stays yours.</text>
+<text x="83" y="252" fill="#eaf5ff" font-size="18" font-weight="600" font-family="Inter, ui-sans-serif, system-ui, sans-serif">The journeys in between can change.</text>
+<rect x="556" y="198" width="170" height="31" rx="15" fill="#182941" stroke="#31455f" stroke-width="1"/><text x="571" y="219" fill="#84d7e8" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-weight="700" font-size="13">IMPORT / PLAN</text>
+<path d="M738 215 H786" fill="none" stroke="#62d9bd" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"  marker-end="url(#arrow)"/>
+<rect x="800" y="198" width="185" height="31" rx="15" fill="#182941" stroke="#31455f" stroke-width="1"/><text x="815" y="219" fill="#84d7e8" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-weight="700" font-size="13">COMPARE OPTIONS</text>
+<path d="M995 215 H1043" fill="none" stroke="#62d9bd" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"  marker-end="url(#arrow)"/>
+<rect x="1057" y="198" width="243" height="31" rx="15" fill="#182941" stroke="#31455f" stroke-width="1"/><text x="1072" y="219" fill="#84d7e8" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-weight="700" font-size="13">ACCEPT A REALISTIC DAY</text>
+<text x="566" y="258" fill="#a9bdd5" font-size="14" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">Fixed appointments</text>
+<text x="566" y="276" fill="#a9bdd5" font-size="14" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">remain fixed</text>
+<text x="810" y="258" fill="#a9bdd5" font-size="14" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">Trade-offs are shown</text>
+<text x="810" y="276" fill="#a9bdd5" font-size="14" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">before acceptance</text>
+<text x="1067" y="258" fill="#a9bdd5" font-size="14" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">Modeled improvement,</text>
+<text x="1067" y="276" fill="#a9bdd5" font-size="14" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">not a health guarantee</text>
+
+<text x="65" y="314" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" font-weight="700" letter-spacing="2.2" fill="#b1c4d9">02 / REQUEST &amp; ORCHESTRATION</text>
+<rect x="55" y="333" width="278" height="247" rx="23" fill="url(#panel)" stroke="#34516b" stroke-width="1.8"/>
+<rect x="77" y="357" width="51" height="51" rx="14" fill="#153e48" stroke="#317969"/>
+<path d="M91 390 L102 373 L113 390 Z" fill="none" stroke="#80f0d0" stroke-width="3"/><path d="M91 394 H114" stroke="#80f0d0" stroke-width="3" stroke-linecap="round"/>
+<text x="148" y="367" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" font-weight="700" letter-spacing="2.2" fill="#81e9ce">FRONTEND</text>
+<text x="148" y="392" fill="#f4faff" font-size="18" font-weight="680" font-family="Inter, ui-sans-serif, system-ui, sans-serif">React + TypeScript</text>
+<text x="148" y="418" fill="#f4faff" font-size="18" font-weight="680" font-family="Inter, ui-sans-serif, system-ui, sans-serif">on AWS Amplify</text>
+<text x="82" y="453" fill="#a9bdd5" font-size="16" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">Agenda / .ics import</text>
+<text x="82" y="478" fill="#a9bdd5" font-size="16" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">Mode + time preferences</text>
+<text x="82" y="503" fill="#a9bdd5" font-size="16" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">Before/after route map</text>
+<text x="82" y="528" fill="#a9bdd5" font-size="16" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">Accept, history, impact</text>
+<rect x="80" y="542" width="215" height="31" rx="15" fill="#182941" stroke="#31455f" stroke-width="1"/><text x="95" y="563" fill="#80d9f6" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-weight="700" font-size="13">OSM JOURNEY TILES</text>
+
+<path d="M340 457 H384" fill="none" stroke="#62d9bd" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"  marker-end="url(#arrow)"/>
+<rect x="390" y="333" width="253" height="247" rx="23" fill="url(#panel)" stroke="#34516b" stroke-width="1.8"/>
+<rect x="414" y="356" width="51" height="51" rx="14" fill="#27394c" stroke="#607589"/>
+<path d="M428 381 H453 M437 372 L428 381 L437 390 M444 372 L453 381 L444 390" stroke="#ffcc88" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="480" y="367" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" font-weight="700" letter-spacing="2.2" fill="#ffce96">AWS EDGE</text>
+<text x="480" y="392" fill="#f4faff" font-size="19" font-weight="700" font-family="Inter, ui-sans-serif, system-ui, sans-serif">API Gateway</text>
+<text x="480" y="417" fill="#f4faff" font-size="19" font-weight="700" font-family="Inter, ui-sans-serif, system-ui, sans-serif">+ Lambda</text>
+<text x="415" y="453" fill="#a9bdd5" font-size="16" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">Validates guest session</text>
+<text x="415" y="478" fill="#a9bdd5" font-size="16" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">Routes API requests</text>
+<text x="415" y="503" fill="#a9bdd5" font-size="16" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">Starts sync workflow</text>
+<text x="415" y="528" fill="#a9bdd5" font-size="16" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">Returns structured plan</text>
+<rect x="416" y="542" width="201" height="31" rx="15" fill="#182941" stroke="#31455f" stroke-width="1"/><text x="431" y="563" fill="#ffce96" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-weight="700" font-size="13">GUEST ISOLATION</text>
+
+<path d="M649 457 H690" fill="none" stroke="#62d9bd" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"  marker-end="url(#arrow)"/>
+<rect x="696" y="333" width="689" height="247" rx="23" fill="#152640" stroke="#386082" stroke-width="1.8"/>
+<rect x="715" y="350" width="651" height="39" rx="12" fill="#1a3454" stroke="#2a5376"/>
+<text x="735" y="375" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" font-weight="700" letter-spacing="2.2" fill="#86d3ff">AWS STEP FUNCTIONS / EXPRESS WORKFLOW</text>
+<rect x="720" y="410" width="198" height="113" rx="17" fill="#203451" stroke="#466481" stroke-width="1.5"/>
+<rect x="941" y="410" width="198" height="113" rx="17" fill="#1c3b45" stroke="#3d766e" stroke-width="1.5"/>
+<rect x="1162" y="410" width="199" height="113" rx="17" fill="#2b324f" stroke="#6f6791" stroke-width="1.5"/>
+<text x="737" y="439" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" font-weight="700" letter-spacing="2.2" fill="#ffcd94">01 / PREPARE</text>
+<text x="737" y="469" fill="#edf4fb" font-size="16" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">Validate events</text>
+<text x="737" y="495" fill="#edf4fb" font-size="16" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">Hold times fixed</text>
+<text x="958" y="439" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" font-weight="700" letter-spacing="2.2" fill="#8af0c8">02 / OPTIMIZE</text>
+<text x="958" y="469" fill="#edf4fb" font-size="16" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">Score route choices</text>
+<text x="958" y="495" fill="#edf4fb" font-size="16" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">Bound extra travel</text>
+<text x="1179" y="439" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" font-weight="700" letter-spacing="2.2" fill="#d3b6ff">03 / PERSIST</text>
+<text x="1179" y="469" fill="#edf4fb" font-size="16" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">Save analyzed plan</text>
+<text x="1179" y="495" fill="#edf4fb" font-size="16" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">for accept/history</text>
+<path d="M922 470 H937" fill="none" stroke="#62d9bd" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"  marker-end="url(#arrow)"/>
+<path d="M1143 470 H1159" fill="none" stroke="#62d9bd" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"  marker-end="url(#arrow)"/>
+<text x="727" y="556" fill="#dcecf8" font-size="16" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">Deterministic candidate selection · Bedrock is not the route optimizer</text>
+
+<text x="65" y="615" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" font-weight="700" letter-spacing="2.2" fill="#b1c4d9">03 / REAL DATA &amp; THE DECISION ENGINE</text>
+<rect x="55" y="636" width="309" height="210" rx="22" fill="#15283f" stroke="#315b72" stroke-width="1.5"/>
+<text x="79" y="668" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" font-weight="700" letter-spacing="2.2" fill="#ffce96">AMAZON LOCATION</text>
+<text x="79" y="702" fill="#e7f4fa" font-size="17" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">Places + Routes V2</text>
+<text x="79" y="729" fill="#e7f4fa" font-size="17" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">Geocode stops; request live</text>
+<text x="79" y="756" fill="#e7f4fa" font-size="17" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">road / pedestrian / transit</text>
+<text x="79" y="783" fill="#e7f4fa" font-size="17" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">routes where supported.</text>
+<rect x="388" y="636" width="309" height="210" rx="22" fill="#15283f" stroke="#315b72" stroke-width="1.5"/>
+<text x="411" y="668" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" font-weight="700" letter-spacing="2.2" fill="#85ebca">ENVIRONMENT PROVIDERS</text>
+<text x="411" y="702" fill="#e7f4fa" font-size="17" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">Tomorrow.io (optional)</text>
+<text x="411" y="729" fill="#e7f4fa" font-size="17" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">Open-Meteo fallback</text>
+<text x="411" y="756" fill="#e7f4fa" font-size="17" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">PM2.5 + heat + UV + rain</text>
+<text x="411" y="783" fill="#e7f4fa" font-size="17" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">Forecasts, not street sensors</text>
+<rect x="721" y="636" width="309" height="210" rx="22" fill="#15283f" stroke="#315b72" stroke-width="1.5"/>
+<text x="744" y="668" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" font-weight="700" letter-spacing="2.2" fill="#85ebca">DETERMINISTIC MODEL</text>
+<text x="744" y="702" fill="#e7f4fa" font-size="17" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">3 samples per route option</text>
+<text x="744" y="729" fill="#e7f4fa" font-size="17" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">Mode-adjusted PM2.5 score</text>
+<text x="744" y="756" fill="#e7f4fa" font-size="17" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">Feasibility + travel budget</text>
+<text x="744" y="783" fill="#e7f4fa" font-size="17" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">Exposure index vs baseline 100</text>
+<rect x="1054" y="636" width="331" height="210" rx="22" fill="#15283f" stroke="#315b72" stroke-width="1.5"/>
+<text x="1077" y="668" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" font-weight="700" letter-spacing="2.2" fill="#d5bdff">STORAGE + TRUST</text>
+<text x="1077" y="702" fill="#e7f4fa" font-size="17" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">DynamoDB · plans + history</text>
+<text x="1077" y="729" fill="#e7f4fa" font-size="17" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">Idempotent plan acceptance</text>
+<text x="1077" y="756" fill="#e7f4fa" font-size="17" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">Bedrock · optional explanation</text>
+<text x="1077" y="783" fill="#e7f4fa" font-size="17" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">CloudWatch · errors + latency</text>
+
+<path d="M1007 527 V611 H209 V631" stroke="#62d9bd" stroke-width="2.5" stroke-dasharray="6 7" fill="none" opacity=".82"/>
+<path d="M1007 527 V611 H544 V631" stroke="#62d9bd" stroke-width="2.5" stroke-dasharray="6 7" fill="none" opacity=".82"/>
+<path d="M1007 527 V630" stroke="#62d9bd" stroke-width="2.5" stroke-dasharray="6 7" fill="none" opacity=".82"/>
+<path d="M1261 528 V629" stroke="#b19ced" stroke-width="2.5" stroke-dasharray="6 7" fill="none" opacity=".82"/>
+<text x="77" y="896" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" font-weight="700" letter-spacing="2.2" fill="#85edcf">HONEST BY DESIGN</text>
+<text x="77" y="928" fill="#bfcee0" font-size="15.7" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">Journey basemap: OpenStreetMap raster  ·  India overview: Amazon Location Maps V2 when available</text>
+<text x="77" y="954" fill="#bfcee0" font-size="15.7" font-weight="400" font-family="Inter, ui-sans-serif, system-ui, sans-serif">AQI: US EPA model forecasts  ·  Results: relative modeled exposure, never measured personal dose</text>
+<rect x="52" y="160" width="1335" height="797" rx="25" fill="none" stroke="#2f5574" opacity=".35" stroke-width="1"/>
+</svg>
