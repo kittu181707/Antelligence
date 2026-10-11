@@ -1,4 +1,4 @@
-import { Search, ArrowRight, ArrowUpRight, Calendar, CalendarDays, MapPin, Navigation2, CheckCircle2, PlayCircle, AlertTriangle, ArrowDown, Clock3, Sun, Wind, HelpCircle, Leaf, Users } from 'lucide-react';
+import { Search, ArrowRight, ArrowUpRight, Calendar, CalendarDays, MapPin, Navigation2, CheckCircle2, PlayCircle, AlertTriangle, ArrowDown, Clock3, Sun, Wind, HelpCircle, Route, ShieldCheck, Sparkles, CheckCircle2 } from 'lucide-react';
 import type { AgendaPayload, JourneyInput, DayAnalysis, TripAnalysis, Coordinates } from '../types';
 import { shortTime } from '../utils';
 
@@ -113,8 +113,14 @@ export function TodayScreen({
             </>
           ) : (
           <>
-              <h3>Today's journeys</h3>
-              <div className="timeline">
+              <div className="results-journeys-heading">
+                <div>
+                  <span className="results-eyebrow">YOUR DAY AT A GLANCE</span>
+                  <h3>Today's journeys</h3>
+                </div>
+                <span className="results-journey-count">{journeys.length} {journeys.length === 1 ? 'journey' : 'journeys'} planned</span>
+              </div>
+              <div className="timeline results-timeline">
                 {journeys.map((journey) => (
                   <div key={journey.tripId} className="timeline-row">
                     <div className="time">{journey.departureTime}</div>
@@ -145,23 +151,23 @@ export function TodayScreen({
           {analysis && m && (
             <div className="dashboard-bottom">
               <div className="dashboard-card analysis-card">
-                <h3>Journey analysis</h3>
-                <section className="exposure-hero" style={{ padding: '12px', marginBottom: '16px' }}>
+                <h3><ShieldCheck size={17} aria-hidden="true"/> Journey analysis</h3>
+                <section className="exposure-hero">
                   <div><span>Original</span><strong>{m.originalExposureIndex}</strong></div>
                   <ArrowRight/>
                   <div className="optimized"><span>Optimized</span><strong>{m.optimizedExposureIndex}</strong></div>
-                  <div className="delta" style={{ position: 'static', marginTop: '8px', padding: '4px 8px', fontSize: '12px', alignSelf: 'flex-start' }}>
+                  <div className="delta">
                     <ArrowDown size={14} style={{verticalAlign:'middle'}}/> {m.exposureReductionPct}% <small>less exposure</small>
                   </div>
                 </section>
-                <div className="metric-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                <div className="metric-grid">
                   <div><Clock3 size={16}/><span>Extra travel</span><strong>+{m.extraTravelMinutes} min</strong></div>
                   <div><Sun size={16}/><span>High-UV time</span><strong>{m.originalHighUvMinutes ? `-${Math.max(0, Math.round((1 - m.optimizedHighUvMinutes / m.originalHighUvMinutes) * 100))}%` : '0 min'}</strong></div>
                 </div>
               </div>
 
               <div className="dashboard-card comparison-card">
-                <h3>Route comparison</h3>
+                <h3><Route size={17} aria-hidden="true"/> Route comparison</h3>
                 {analysis.changes.length > 0 ? (
                   <div className="change-list" style={{ margin: 0 }}>
                     {analysis.changes.slice(0, 1).map((trip) => (
@@ -188,49 +194,38 @@ export function TodayScreen({
                     {analysis.changes.length > 1 && <div style={{fontSize: '12px', color: 'var(--muted)'}}>+ {analysis.changes.length - 1} more changes</div>}
                   </div>
                 ) : (
-                  <div className="snapshot-empty" style={{ minHeight: '80px' }}>No changes recommended for your routes.</div>
+                  <div className="results-empty-state">
+                    <span className="results-empty-symbol"><CheckCircle2 size={22} aria-hidden="true"/></span>
+                    <strong>No changes recommended</strong>
+                    <p>Your routes are already the best fit among the alternatives evaluated.</p>
+                  </div>
                 )}
               </div>
 
               <div className="dashboard-card why-card">
-                <h3>Why this change?</h3>
+                <h3><Sparkles size={17} aria-hidden="true"/> Why this result?</h3>
                 {whyText ? (
                   <div className="why-copy" style={{ fontSize: '13px', lineHeight: 1.5 }}>
                     {whyText}
                   </div>
                 ) : analysis.changes.length > 0 ? (
-                  <div className="snapshot-empty" style={{ minHeight: '80px' }}>Select 'Help' on a route comparison to see why it was changed.</div>
+                  <div className="results-empty-state">
+                    <span className="results-empty-symbol"><Sparkles size={22} aria-hidden="true"/></span>
+                    <strong>Explore the reasoning</strong>
+                    <p>Select the help icon on a recommended route to see the modeled trade-offs.</p>
+                  </div>
                 ) : (
-                  <div className="snapshot-empty" style={{ minHeight: '80px' }}>Your original plan is already optimal!</div>
+                  <div className="results-empty-state">
+                    <span className="results-empty-symbol"><CheckCircle2 size={22} aria-hidden="true"/></span>
+                    <strong>Stay with your plan</strong>
+                    <p>No improvement was found within your selected travel limits.</p>
+                  </div>
                 )}
               </div>
             </div>
           )}
 
-          {/* FOOTER SECTION */}
-          {analysis && m && (
-            <div className="dashboard-footer">
-              <div className="dashboard-card impact-card" style={{ flexDirection: 'row', alignItems: 'center', gap: '16px' }}>
-                <Leaf size={32} color="var(--green)" />
-                <div>
-                  <h3 style={{ margin: '0 0 4px' }}>Today's estimated impact</h3>
-                  <div style={{ display: 'flex', gap: '16px', fontSize: '14px' }}>
-                    <span><strong>-{m.exposureReductionPct}%</strong> exposure</span>
-                    <span><strong>{(m.estimatedCo2eChangeKg ? Math.max(0, -m.estimatedCo2eChangeKg) : 0).toFixed(1)} kg</strong> CO₂e saved</span>
-                  </div>
-                </div>
-              </div>
-              <div className="dashboard-card impact-card" style={{ flexDirection: 'row', alignItems: 'center', gap: '16px' }}>
-                <Users size={32} color="var(--green)" />
-                <div>
-                  <h3 style={{ margin: '0 0 4px' }}>Community impact</h3>
-                  <div style={{ display: 'flex', gap: '16px', fontSize: '14px', color: 'var(--muted)' }}>
-                    <span>Together we've saved over <strong>2,450 kg</strong> of CO₂e this week.</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+
     </div>
   );
 }
