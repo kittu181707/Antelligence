@@ -205,6 +205,11 @@ export function TodayScreen({
                     <span className="results-empty-symbol"><CheckCircle2 size={22} aria-hidden="true"/></span>
                     <strong>No supported improvement found</strong>
                     <p>We checked the feasible routes and departure times. No option meaningfully reduced modeled exposure within your schedule. You can try allowing extra travel time or updating your stops.</p>
+                    {!isDemo && <button type="button" className="secondary results-example-cta"
+                      onClick={onDemo} disabled={busy}>
+                      <PlayCircle size={15} aria-hidden="true"/>
+                      {busy ? 'Preparing example…' : 'See a sample with real changes'}
+                    </button>}
                   </div>
                 )}
               </div>
