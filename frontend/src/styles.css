@@ -1974,3 +1974,25 @@ body { overflow-x: hidden; }
   .results-layout .results-impact-stats strong { font-size: 20px; }
   .results-layout .results-impact-panel > p { margin-top: 7px; font-size: 9px; line-height: 1.35; }
 }
+
+/* Results communicate actual feasibility rather than promising invented gains. */
+.results-layout .results-options-count {
+  margin: -5px 0 10px;
+  color: #557b6c;
+  font-size: 11px;
+  line-height: 1.4;
+  font-weight: 550;
+}
+.results-layout .results-route-disclaimer {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 11px 13px;
+  border: 1px solid #c6e6db;
+  border-radius: 13px;
+  background: #effbf6;
+  color: #285b4b;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.results-layout .results-route-disclaimer svg { flex: 0 0 auto; color: #088e67; }
