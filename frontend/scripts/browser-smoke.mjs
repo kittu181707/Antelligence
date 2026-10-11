@@ -59,6 +59,17 @@ try {
     permissions: ['geolocation'],
     serviceWorkers: 'block',
   });
+  // Deterministic 3x3 Open-Meteo values exercise the weather renderer in
+  // browser QA; production never substitutes fixtures for weather.
+  await context.route('https://api.open-meteo.com/**', async (route) => {
+    const url = new URL(route.request().url());
+    const locations = (url.searchParams.get('latitude') || '').split(',').length;
+    const readings = Array.from({ length: locations }, (_, i) => ({
+      current: { temperature_2m: 26 + i * .75 },
+    }));
+    await route.fulfill({ status: 200, contentType: 'application/json',
+      body: JSON.stringify(readings) });
+  });
   await context.route('**/tile.openstreetmap.org/**', async (route) =>
     route.fulfill({ status: 200, contentType: 'image/png', body: TILE_PNG }));
   await context.route('**/a.tile.openstreetmap.fr/**', async (route) =>
@@ -166,6 +177,23 @@ try {
     'OpenStreetMap tile attribution must remain visible');
   assert((await page.locator('.landing-provenance').textContent() || '').includes('Amazon Location · Lambda · Step Functions'),
     'existing landing provenance must retain accurate AWS names (compact desktop CSS hides this footer)');
+  // A weather model field must be fetched, interpolated, labeled and
+  // removable without destroying the underlying navigation/route map.
+  await page.waitForSelector('[data-weather-heatmap="ready"]', { timeout: 12000 });
+  assert.equal(await page.locator('.weather-temperature-readout strong').textContent(), '29°C',
+    'temperature overlay must use actual sampled model data near map center');
+  assert(await page.locator('.weather-temperature-legend').isVisible(),
+    'weather overlay needs a visible Celsius scale and data attribution');
+  const firstTile = page.locator('.raster-tile').first();
+  assert(await firstTile.evaluate((el) => Math.abs(el.getBoundingClientRect().width - 128) <= 2),
+    'compact map should use sharper half-size, next-zoom native tiles');
+  await page.locator('.raster-layer-switch').getByRole('button', { name: 'Routes' }).click();
+  assert.equal(await page.locator('[data-weather-heatmap="ready"]').count(), 0,
+    'Routes display must remove heat overlay without losing the underlying map');
+  assert.equal(await page.locator('[data-map-engine="dom-raster"]').count(), 1,
+    'weather switch must preserve the working map engine');
+  await page.locator('.raster-layer-switch').getByRole('button', { name: 'Temperature' }).click();
+  await page.waitForSelector('[data-weather-heatmap="ready"]', { timeout: 12000 });
   // Judge-facing homepage: wider map on the RIGHT without increasing its height.
   assert(await page.locator('.landing-dashboard .landing-hero').isVisible(), 'landing page needs a visible product hero');
   assert.equal(await page.locator('.landing-method-card').count(), 3, 'explain the product in three credible steps');
