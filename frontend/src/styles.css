@@ -560,14 +560,17 @@
 html, body, #root { min-width: 0; height: 100%; }
 body { overflow-x: hidden; }
 .app-container { height: 100dvh; display: flex; flex-direction: column; min-width: 0; }
-.app-topbar { flex: 0 0 auto; width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 20px clamp(18px, 3vw, 44px); border-bottom: 1px solid var(--line); background: var(--surface); }
-.app-welcome { min-width: 0; flex: 1; }
-.welcome-kicker { display: block; margin-bottom: 5px; color: var(--green-dark); font-size: 10px; font-weight: 700; letter-spacing: .12em; }
-.app-welcome h1 { margin: 0; font-size: clamp(21px, 2vw, 30px); line-height: 1.2; letter-spacing: -.035em; font-weight: 750; }
-.app-welcome h1 span { font-weight: 500; color: #334155; }
-.top-environment { flex: 0 0 auto; margin-left: auto; max-width: 50%; }
-.top-environment .environment-chip-row { flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
-.top-environment .env-chip { white-space: nowrap; font-size: 12px; }
+/* Shared across Today, Planner, Map, Settings and results.
+   Give the greeting two predictable lines even AFTER the live metrics load. */
+.app-topbar { flex: 0 0 auto; width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px clamp(18px, 3vw, 44px); border-bottom: 1px solid var(--line); background: var(--surface); }
+.app-welcome { min-width: 0; flex: 1 1 auto; }
+.app-welcome .welcome-kicker { margin-bottom: 3px; font-size: 9px; letter-spacing: .105em; }
+.app-welcome h1 { margin: 0; font-size: clamp(18px, 1.6vw, 23px); line-height: 1.17; letter-spacing: -.04em; font-weight: 750; }
+.app-welcome h1 span { display: block; font-weight: 500; color: #334155; }
+.top-environment { flex: 0 1 45%; min-width: 0; max-width: 45%; margin-left: auto; }
+.top-environment .environment-chip-row { flex-wrap: wrap; justify-content: flex-end; gap: 5px 6px; }
+.top-environment .env-chip { min-width: 0; max-width: 100%; padding: 5px 9px; gap: 5px; white-space: nowrap; font-size: 11px; }
+.top-environment .env-chip:last-child span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .global-split-layout { display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(300px, 370px); align-items: start; gap: clamp(15px, 2.5vw, 34px); padding: 22px clamp(18px, 3vw, 44px) 106px; height: auto; min-height: 0; overflow-y: auto; overflow-x: hidden; background: #f9fafb; }
 .global-panel-col { display: block; border: 0; max-width: none; min-width: 0; min-height: 0; height: auto; overflow: visible; background: transparent; }
 .global-panel-col > .screen { width: 100%; max-width: 850px; height: auto; padding: 8px 0 20px; overflow: visible; margin: 0; }
@@ -589,10 +592,11 @@ body { overflow-x: hidden; }
 .compact-map-note { margin: 11px 3px 2px; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .demo-banner { border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; background: #fff0ed; color: #9a3412; font-size: 12px; font-weight: 650; }
 .global-panel-col .screen-title h1 { line-height: 1.2; }
-@media (max-width: 1050px) { .global-split-layout { grid-template-columns: minmax(0,1fr) 320px; } .app-topbar { align-items: flex-start; } }
+@media (max-width: 1050px) { .global-split-layout { grid-template-columns: minmax(0,1fr) 320px; } }
 @media (max-width: 760px) {
-  .app-topbar { flex-direction: column; gap: 12px; padding: 18px 16px 14px; }
-  .top-environment { max-width: 100%; margin: 0; width: 100%; }
+  .app-topbar { flex-direction: column; align-items: stretch; gap: 8px; padding: 12px 16px 10px; }
+  .app-welcome h1 { font-size: clamp(16px, 3.9vw, 19px); }
+  .top-environment { flex: 0 0 auto; max-width: 100%; margin: 0; width: 100%; }
   .top-environment .environment-chip-row { justify-content: flex-start; }
   .global-split-layout { display: flex !important; flex-direction: column-reverse; padding: 16px 16px 112px; gap: 16px; overflow-y: auto; }
   .global-map-col { width: 100%; position: relative; top: auto; flex: none; }
