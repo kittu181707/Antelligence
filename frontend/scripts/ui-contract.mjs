@@ -1,5 +1,4 @@
 import { readFileSync } from 'node:fs';
-import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 
 import { fileURLToPath } from 'node:url';
@@ -54,23 +53,25 @@ assert(entryFile.includes('<ErrorBoundary') && app.includes('<ErrorBoundary labe
 assert(errorBoundary.includes('getDerivedStateFromError') && errorBoundary.includes('Try again'), 'render crash must present a recoverable UI');
 assert(app.includes('app-topbar') && app.includes('global-map-col'), 'all pages must use the shared header and compact map');
 const sharedHeaderStyles = read('src/styles.css');
-const wordmark = readFileSync(join(root, 'public/antelligence-wordmark.png'));
-assert(wordmark.length === 95195 &&
-  createHash('sha256').update(wordmark).digest('hex') ===
-    '7717dce89122505ccc342b55176b929cc62fcf79745439780d2192627a742baa',
-  'the logo asset must be the original uploaded PNG, byte-for-byte');
-assert(app.includes('src="/antelligence-wordmark.png"') &&
-  app.includes('alt="Antelligence" width={558} height={177}') &&
+const emblem = read('public/antelligence-emblem.svg');
+assert(emblem.includes('viewBox="0 0 166 160"') &&
+  emblem.includes('fill-rule="evenodd"') &&
+  !emblem.includes('<image') && !emblem.includes('base64'),
+  'emblem must use transparent vector artwork, not a pasted rectangular image');
+assert(app.includes('src="/antelligence-emblem.svg"') &&
+  app.includes('className="ant-brand-wordmark"') &&
+  app.includes('>ntelligence</span>') &&
+  app.includes('aria-label="Antelligence"') &&
   app.includes('<p>Intelligence through coordination</p>') &&
-  !app.includes('className="ant-brand-symbol"') &&
-  !app.includes('<h1>ANTELLIGENCE</h1>'),
-  'header must show only the supplied ANTELLIGENCE wordmark, not the old drawn ant and typed title');
-assert(sharedHeaderStyles.includes('.ant-brand-wordmark {') &&
-  sharedHeaderStyles.includes('width: min(180px, 100%);') &&
+  !app.includes('src="/antelligence-wordmark.png"'),
+  'header must render the large vector A, selectable wordmark and exact tagline');
+assert(sharedHeaderStyles.includes('.ant-brand-emblem {') &&
+  sharedHeaderStyles.includes('.ant-brand-wordmark {') &&
+  sharedHeaderStyles.includes('background-clip: text;') &&
   sharedHeaderStyles.includes('.app-welcome .ant-brand-copy p {') &&
   sharedHeaderStyles.includes('.top-environment { flex: 0 1 45%;') &&
   sharedHeaderStyles.includes('.top-environment .env-chip { min-width: 0;'),
-  'wordmark must fit compactly without changing the existing weather/AQI layout');
+  'brand must blend into the white header without disturbing live conditions');
 assert(app.includes('<div className="top-environment">') &&
   app.includes('<LiveEnvironmentSnapshot homeLocation={agenda.homeLocation} liveLocation={liveLocation} isDemo={isDemo} chipMode={true}/>'),
   'brand update must preserve the existing right-hand live environmental data');
