@@ -313,6 +313,7 @@ try {
   // Test browser Back/Forward in a fresh tab: map gesture tests above have
   // already created a complex navigation stack in the main tab.
   const historyPage = await context.newPage();
+  await historyPage.bringToFront();
   historyPage.on('pageerror', (error) => errors.push(String(error)));
   await historyPage.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
   await historyPage.locator('.landing-hero').waitFor({ state: 'visible' });
@@ -323,7 +324,7 @@ try {
   assert.equal(await historyPage.evaluate(() => location.hash), '#/view/settings/landing',
     'Settings must have its own URL entry for browser Back/Forward');
   const beforeSettingsBack = await historyPage.evaluate(() => ({ state: history.state?.pollutionView, length: history.length }));
-  await historyPage.evaluate(() => window.history.back());
+  await historyPage.goBack({ waitUntil: 'commit', timeout: 10000 });
   await historyPage.waitForTimeout(450);
   const afterSettingsBack = await historyPage.evaluate(() => ({
     state: history.state?.pollutionView,
@@ -338,7 +339,7 @@ try {
     'Back must restore the Today history entry');
   assert.equal(await historyPage.evaluate(() => location.hash), '',
     'Back must restore the original root URL rather than lose history state');
-  await historyPage.evaluate(() => window.history.forward());
+  await historyPage.goForward({ waitUntil: 'commit', timeout: 10000 });
   await historyPage.waitForTimeout(500);
   const afterSettingsForward = await historyPage.evaluate(() => ({
     state: history.state?.pollutionView,
@@ -359,9 +360,9 @@ try {
   await historyPage.getByRole('button', { name: 'Today', exact: true }).click();
   await historyPage.getByRole('button', { name: 'Enter your day' }).click();
   await historyPage.locator('.itinerary-editor').waitFor({ state: 'visible' });
-  await historyPage.evaluate(() => window.history.back());
+  await historyPage.goBack({ waitUntil: 'commit', timeout: 10000 });
   await historyPage.locator('.landing-hero').waitFor({ state: 'visible' });
-  await historyPage.evaluate(() => window.history.forward());
+  await historyPage.goForward({ waitUntil: 'commit', timeout: 10000 });
   await historyPage.locator('.itinerary-editor').waitFor({ state: 'visible' });
   await historyPage.locator('.itinerary-editor .back').click();
   await historyPage.locator('.landing-hero').waitFor({ state: 'visible' });
