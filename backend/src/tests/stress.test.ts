@@ -5,6 +5,7 @@ import { isValidTime, timeToMinutes } from '../core/time';
 import { optimizeCandidateSets } from '../core/optimizer';
 import { routesForTrip } from '../services/routes';
 import { runDirectAnalysis } from '../services/analyze';
+import { demoDay } from '../core/demo';
 import { geocode } from '../services/geocode';
 import type { RouteCandidate, TripCandidateSet } from '../types';
 
@@ -146,6 +147,27 @@ async function main() {
   assert(demoExample.trips[0].recommended.mode !== 'walk', 'demo should compare modes, not invent an improvement');
   assert(demoExample.trips[0].recommended.source === 'Controlled demo route data');
   assert.equal(demoExample.workflow.dataMode, 'demo');
+
+  // Protect the REAL judge-demo entry point, including its times/modes,
+  // not only the simplified one-stop controlled illustration.
+  const showcaseDay = demoDay();
+  const showcaseJourneys = showcaseDay.events.map((event, index) => ({
+    tripId: `judge-demo-${index}`,
+    origin: index === 0 ? showcaseDay.homeLocation : showcaseDay.events[index - 1].location,
+    destination: event.location,
+    departureTime: ['07:45', '12:00', '17:45', '19:20'][index],
+    arriveBy: event.start,
+    mode: (['car', 'metro', 'metro', 'bike'] as const)[index],
+  }));
+  const showcaseResult = await runDirectAnalysis({
+    ...showcaseDay, userId: 'showcase-regression',
+    journeys: showcaseJourneys, maxExtraMinutes: 10, demoMode: true,
+  });
+  assert(showcaseResult.changes.length > 0,
+    'the actual one-click judge demo must show at least one supported route, mode, or time optimization');
+  assert(showcaseResult.metrics.exposureReductionPct > 0,
+    'the actual judge demo must visibly reduce modeled exposure');
+  assert.equal(showcaseResult.workflow.dataMode, 'demo');
 
   // Exercise the production AWS-failure fallback, not just the estimate
   // formula, without making live AWS calls during CI.
