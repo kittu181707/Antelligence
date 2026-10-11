@@ -1996,3 +1996,22 @@ body { overflow-x: hidden; }
   line-height: 1.5;
 }
 .results-layout .results-route-disclaimer svg { flex: 0 0 auto; color: #088e67; }
+
+.results-layout .results-example-cta {
+  align-self: stretch;
+  justify-content: center;
+  gap: 7px;
+  display: inline-flex;
+  align-items: center;
+  margin-top: 8px;
+  padding: 9px 11px;
+  border: 1px solid #b9e5cf;
+  background: #edfbf3;
+  border-radius: 10px;
+  color: #076845;
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.35;
+  cursor: pointer;
+}
+.results-layout .results-example-cta:hover { background: #dcf7e9; }
