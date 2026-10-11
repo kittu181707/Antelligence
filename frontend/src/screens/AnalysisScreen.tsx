@@ -5,9 +5,9 @@ import { CheckCircle2, CloudSun, Leaf, Route } from 'lucide-react';
 // Intermediate ticks are visual transitions, not verified server work.
 const stages = [
   { name: 'Understanding your schedule', detail: 'Keeping appointments and travel preferences together' },
-  { name: 'Exploring travel routes', detail: 'Looking for viable routes for your journeys' },
+  { name: 'Exploring AWS routes', detail: 'Looking for viable routes for your journeys' },
   { name: 'Checking outdoor conditions', detail: 'Comparing modeled air quality and weather along the way' },
-  { name: 'Finding the better day', detail: 'Considering exposure, travel time, and your commitments' },
+  { name: 'AWS Step Functions', detail: 'Considering exposure, travel time, and your commitments' },
 ] as const;
 
 export const ANALYSIS_STEP_MS = 950;
