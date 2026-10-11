@@ -444,7 +444,7 @@ export default function App() {
         <div className="app-welcome">
           <div className="ant-brand">
             <img className="ant-brand-emblem" src="/antelligence-emblem.svg"
-              alt="" aria-hidden="true" width={166} height={160} />
+              alt="" aria-hidden="true" width={188} height={160} />
             <div className="ant-brand-copy">
               <h1 className="ant-brand-image-title" aria-label="Antelligence">
                 <span className="ant-brand-wordmark" aria-hidden="true">ntelligence</span>
