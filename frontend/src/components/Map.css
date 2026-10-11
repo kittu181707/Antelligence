@@ -160,3 +160,22 @@
 @media (max-height: 620px) {
   .weather-temperature-readout strong { font-size: 19px; }
 }
+
+/* Compact analyzed cards can shrink the map to 135px to fit under the dock.
+   Keep the heat visible, but collapse secondary overlays in that thumbnail.
+   The complete legend appears when the user expands the map. */
+.raster-map { container-type: size; }
+@container (max-height: 190px) {
+  .raster-map-badge.with-switch,
+  .weather-temperature-legend { display: none; }
+  .weather-temperature-readout {
+    top: 49px;
+    left: 8px;
+    padding: 5px 8px;
+    gap: 1px;
+    max-width: 130px;
+  }
+  .weather-temperature-readout strong { font-size: 18px; }
+  .weather-temperature-readout small { display: none; }
+  .weather-temperature-eyebrow { font-size: 7px; }
+}
