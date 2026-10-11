@@ -52,6 +52,12 @@ assert(app.includes('LiveEnvironmentSnapshot'), 'shared top bar must show real e
 assert(entryFile.includes('<ErrorBoundary') && app.includes('<ErrorBoundary label="Live map"') && app.includes('<ErrorBoundary label="Live conditions"'), 'map and live conditions errors must not cause a white screen');
 assert(errorBoundary.includes('getDerivedStateFromError') && errorBoundary.includes('Try again'), 'render crash must present a recoverable UI');
 assert(app.includes('app-topbar') && app.includes('global-map-col'), 'all pages must use the shared header and compact map');
+const sharedHeaderStyles = read('src/styles.css');
+assert(sharedHeaderStyles.includes('.app-welcome h1 span { display: block;') &&
+  sharedHeaderStyles.includes('.top-environment { flex: 0 1 45%;') &&
+  sharedHeaderStyles.includes('.app-welcome h1 { margin: 0; font-size: clamp(18px, 1.6vw, 23px);') &&
+  sharedHeaderStyles.includes('.top-environment .env-chip { min-width: 0;'),
+  'shared greeting must stay compact when live environmental readings fill the header');
 assert(nav.includes("['map', 'Map', MapIcon]") && nav.includes("['today', 'Today', CalendarDays]") && nav.includes("['settings', 'Settings', Settings]"),
   'primary navigation must offer only Today, Map and Settings');
 assert(!nav.includes("['optimize',") && !nav.includes("['impact',") && !nav.includes("['history',"),
