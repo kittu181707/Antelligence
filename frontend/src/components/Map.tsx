@@ -347,7 +347,7 @@ export function Map({ trips, liveLocation, isDemo = false, previewPoints = [] }:
           <small>{id === 'air' ? 'Model samples' : id === 'traffic' ? 'Route context' :
             id === 'weather' || id === 'uv' ? 'Forecast' : 'After analysis'}</small>
         </button>)}
-    </div> 
+    </div>}
     <div className="raster-map-controls">
       <button type="button" aria-label="Zoom in" onClick={() => zoomTo(view.zoom + 1)}><Plus size={16}/></button>
       <button type="button" aria-label="Zoom out" onClick={() => zoomTo(view.zoom - 1)}><Minus size={16}/></button>
