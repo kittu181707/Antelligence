@@ -443,10 +443,11 @@ export default function App() {
       <header className="app-topbar">
         <div className="app-welcome">
           <div className="ant-brand">
+            <img className="ant-brand-emblem" src="/antelligence-emblem.svg"
+              alt="" aria-hidden="true" width={166} height={160} />
             <div className="ant-brand-copy">
-              <h1 className="ant-brand-image-title">
-                <img className="ant-brand-wordmark" src="/antelligence-wordmark.png"
-                  alt="Antelligence" width={558} height={177}/>
+              <h1 className="ant-brand-image-title" aria-label="Antelligence">
+                <span className="ant-brand-wordmark" aria-hidden="true">ntelligence</span>
               </h1>
               <p>Intelligence through coordination</p>
             </div>
